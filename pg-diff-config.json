@@ -1,0 +1,20 @@
+{
+    "example": {
+        "source": {
+            "host": "localhost",
+            "port": 5432,
+            "database": "hukocash",
+            "user": "postgres",
+            "password": "postgres",
+            "schemas": ["public"]
+        },
+        "target": {
+            "host": "localhost",
+            "port": 5432,
+            "database": "hkdev",
+            "user": "postgres",
+            "password": "postgres",
+            "schemas": ["public"]
+        }
+    }
+}
