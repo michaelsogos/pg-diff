@@ -42,7 +42,6 @@ const query = {
     },
     "getTablePrivileges": function(schemaName, tableName) {
         return `SELECT t.schemaname, t.tablename, u.usename, 
-                HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') as all,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'SELECT') as select,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'INSERT') as insert,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'UPDATE') as update,
@@ -58,7 +57,6 @@ const query = {
     },
     "getViewPrivileges": function(schemaName, viewName) {
         return `SELECT v.schemaname, v.viewname, u.usename, 
-                HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') as all,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT') as select,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'INSERT') as insert,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'UPDATE') as update,
@@ -74,7 +72,6 @@ const query = {
     },
     "getMaterializedViewPrivileges": function(schemaName, viewName) {
         return `SELECT v.schemaname, v.matviewname, u.usename, 
-                HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') as all,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT') as select,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'INSERT') as insert,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'UPDATE') as update,
@@ -230,7 +227,6 @@ var helper = {
             let privileges = await client.query(query.getTablePrivileges(table.schemaname, table.tablename))
             privileges.rows.forEach(privilege => {
                 result[fullTableName].privileges[privilege.usename] = {
-                    all: privilege.all,
                     select: privilege.select,
                     insert: privilege.insert,
                     update: privilege.update,
@@ -244,6 +240,7 @@ var helper = {
             //TODO: Missing discovering of PARTITION
             //TODO: Missing discovering of TRIGGER
             //TODO: Missing discovering of GRANTS for COLUMNS
+            //TODO: Missing discovering of WITH GRANT OPTION, that is used to indcate if user\role can add GRANTS to other users
 
         }));
 
@@ -272,7 +269,6 @@ var helper = {
             let privileges = await client.query(query.getViewPrivileges(view.schemaname, view.viewname))
             privileges.rows.forEach(privilege => {
                 result[fullViewName].privileges[privilege.usename] = {
-                    all: privilege.all,
                     select: privilege.select,
                     insert: privilege.insert,
                     update: privilege.update,
@@ -325,7 +321,6 @@ var helper = {
             let privileges = await client.query(query.getMaterializedViewPrivileges(view.schemaname, view.matviewname))
             privileges.rows.forEach(privilege => {
                 result[fullViewName].privileges[privilege.usename] = {
-                    all: privilege.all,
                     select: privilege.select,
                     insert: privilege.insert,
                     update: privilege.update,
