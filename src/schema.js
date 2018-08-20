@@ -3,6 +3,9 @@ const { Progress } = require('clui');
 const chalk = require('chalk');
 
 const query = {
+    "getSchemas": function(schemas) {
+        return `SELECT nspname, nspowner::regrole::name as owner FROM pg_namespace WHERE nspname IN ('${schemas.join("','")}')`
+    },
     "getTables": function(schemas) {
         return `SELECT schemaname, tablename, tableowner FROM pg_tables WHERE schemaname IN ('${schemas.join("','")}')`
     },
@@ -112,6 +115,7 @@ var helper = {
                 helper.__updateProgressbar(0.0, 'Collecting database objects schema');
 
                 var schema = {
+                    schemas: await helper.__retrieveSchemas(client, schemas),
                     tables: await helper.__retrieveTables(client, schemas),
                     views: await helper.__retrieveViews(client, schemas),
                     materializedViews: await helper.__retrieveMaterializedViews(client, schemas),
@@ -131,6 +135,23 @@ var helper = {
             }
         });
     },
+    __retrieveSchemas: async function(client, schemas) {
+        let result = {}
+
+        helper.__updateProgressbar(helper.__progressBarValue + 0.0001, 'Collecting schemas');
+
+        //Get schemas
+        const namespaces = await client.query(query.getSchemas(schemas))
+        const progressBarStep = 0.1999 / namespaces.rows.length;
+
+        await Promise.all(namespaces.rows.map(async(namespace) => {
+            result[namespace.nspname] = {
+                owner: namespace.owner
+            };
+        }));
+
+        return result;
+    },
     __retrieveTables: async function(client, schemas) {
         let result = {}
 
@@ -138,7 +159,7 @@ var helper = {
 
         //Get tables
         const tables = await client.query(query.getTables(schemas))
-        const progressBarStep = 0.2499 / tables.rows.length;
+        const progressBarStep = 0.1999 / tables.rows.length;
 
         await Promise.all(tables.rows.map(async(table) => {
             const progressBarSubStep = progressBarStep / 5;
@@ -235,7 +256,7 @@ var helper = {
 
         //Get views
         const views = await client.query(query.getViews(schemas))
-        const progressBarStep = 0.2499 / views.rows.length;
+        const progressBarStep = 0.1999 / views.rows.length;
 
         await Promise.all(views.rows.map(async(view) => {
             let fullViewName = `"${view.schemaname}"."${view.viewname}"`;
@@ -275,7 +296,7 @@ var helper = {
 
         //Get materialized views
         const views = await client.query(query.getMaterializedViews(schemas))
-        const progressBarStep = 0.2499 / views.rows.length;
+        const progressBarStep = 0.1999 / views.rows.length;
 
         await Promise.all(views.rows.map(async(view) => {
             const progressBarSubStep = progressBarStep / 2;
@@ -327,7 +348,7 @@ var helper = {
 
         //Get functions
         const procedures = await client.query(query.getFunctions(schemas))
-        const progressBarStep = 0.2499 / procedures.rows.length;
+        const progressBarStep = 0.1999 / procedures.rows.length;
 
         await Promise.all(procedures.rows.map(async(procedure) => {
             let fullProcedureName = `"${procedure.nspname}"."${procedure.proname}"`;

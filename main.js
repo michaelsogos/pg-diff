@@ -132,7 +132,7 @@ async function __run() {
         log();
         log();
         log(chalk.yellow("Compare SOURCE with TARGET database objects schema"))
-        let scripts = await compare.compareSchema(sourceSchema, targetSchema);
+        let scripts = await compare.compareDatabaseObjects(sourceSchema, targetSchema);
 
         console.dir(scripts, { depth: null })
 

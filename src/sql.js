@@ -1,6 +1,7 @@
 const hints = {
     addColumnNotNullableWithoutDefaultValue: " --WARN: Add a new column not nullable without a default value can occure in a sql error during execution!",
-    changeColumnDataType: " --WARN: Change column data type can occure in a auto-casting sql error during execution, is recommended to use the keyword USING to include a casting logic!"
+    changeColumnDataType: " --WARN: Change column data type can occure in a auto-casting sql error during execution, is recommended to use the keyword USING to include a casting logic!",
+    dropColumn: " --WARN: Drop column can occure in data loss!"
 }
 
 var helper = {
@@ -21,6 +22,11 @@ var helper = {
         let dataType = this.__generateColumnDataTypeDefinition(columnSchema);
 
         return `${column} ${dataType} ${columnSchema.nullable?'NULL':'NOT NULL'} ${defaultValue}`
+    },
+    generateCreateSchemaScript: function(schema, owner) {
+        let script = `\nCREATE SCHEMA ${schema} AUTHORIZATION ${owner};`;
+        //console.log(script);
+        return script;
     },
     generateCreateTableScript: function(table, schema) {
         //Generate columns script
@@ -102,10 +108,30 @@ var helper = {
 
         let script = `\nALTER TABLE ${table}\n\t${definitions.join(',\n\t')};`
 
-        console.log(script);
+        //console.log(script);
 
         //TODO: Should we include COLLATE when change column data type?
 
+        return script;
+    },
+    generateDropTableColumnScript: function(table, column) {
+        let script = `\nALTER TABLE ${table} DROP COLUMN ${column} CASCADE;${hints.dropColumn}`;
+        //console.log(script);
+        return script;
+    },
+    generateAddTableConstraintScript: function(table, constraint, schema) {
+        let script = `\nALTER TABLE ${table} ADD CONSTRAINT ${constraint} ${schema.definition};`;
+        //console.log(script);
+        return script;
+    },
+    generateChangeTableConstraintScript: function(table, constraint, schema) {
+        let script = `\nALTER TABLE ${table} DROP CONSTRAINT ${constraint}, ADD CONSTRAINT ${constraint} ${schema.definition};`;
+        //console.log(script);
+        return script;
+    },
+    generateDropTableConstraintScript: function(table, constraint) {
+        let script = `\nALTER TABLE ${table} DROP CONSTRAINT ${constraint};`;
+        //console.log(script);
         return script;
     }
 }

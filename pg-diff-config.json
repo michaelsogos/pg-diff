@@ -6,7 +6,7 @@
             "database": "hukocash",
             "user": "postgres",
             "password": "postgres",
-            "schemas": ["public"]
+            "schemas": ["public", "cici", "tte"]
         },
         "target": {
             "host": "localhost",
