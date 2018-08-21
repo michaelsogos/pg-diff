@@ -3,6 +3,9 @@ const { Progress } = require('clui');
 const chalk = require('chalk');
 
 const query = {
+    "getSchemas": function(schemas) {
+        return `SELECT nspname, nspowner::regrole::name as owner FROM pg_namespace WHERE nspname IN ('${schemas.join("','")}')`
+    },
     "getTables": function(schemas) {
         return `SELECT schemaname, tablename, tableowner FROM pg_tables WHERE schemaname IN ('${schemas.join("','")}')`
     },
@@ -39,7 +42,6 @@ const query = {
     },
     "getTablePrivileges": function(schemaName, tableName) {
         return `SELECT t.schemaname, t.tablename, u.usename, 
-                HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') as all,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'SELECT') as select,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'INSERT') as insert,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${tableName}"', 'UPDATE') as update,
@@ -55,7 +57,6 @@ const query = {
     },
     "getViewPrivileges": function(schemaName, viewName) {
         return `SELECT v.schemaname, v.viewname, u.usename, 
-                HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') as all,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT') as select,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'INSERT') as insert,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'UPDATE') as update,
@@ -71,7 +72,6 @@ const query = {
     },
     "getMaterializedViewPrivileges": function(schemaName, viewName) {
         return `SELECT v.schemaname, v.matviewname, u.usename, 
-                HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER') as all,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'SELECT') as select,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'INSERT') as insert,
                 HAS_TABLE_PRIVILEGE(u.usename,'"${schemaName}"."${viewName}"', 'UPDATE') as update,
@@ -92,7 +92,7 @@ const query = {
         return `SELECT p.pronamespace::regnamespace::name, p.proname, u.usename, 
                 HAS_FUNCTION_PRIVILEGE(u.usename,'"${schemaName}"."${functionName}"(${argTypes})','EXECUTE') as execute  
                 FROM pg_proc p, pg_user u 
-                WHERE p.proname='${functionName}' AND p.pronamespace::regnamespace::name = '"${schemaName}"'`
+                WHERE p.proname='${functionName}' AND p.pronamespace::regnamespace = '"${schemaName}"'::regnamespace`
     },
 }
 
@@ -103,15 +103,16 @@ var helper = {
         this.__progressBarValue = value;
         process.stdout.clearLine();
         process.stdout.cursorTo(0);
-        process.stdout.write(chalk.whiteBright(label) + ' ' + this.__progressBar.update(this.__progressBarValue));
+        process.stdout.write(this.__progressBar.update(this.__progressBarValue) + ' - ' + chalk.whiteBright(label));
     },
     collectSchemaObjects: async function(client, schemas) {
         return new Promise(async(resolve, reject) => {
             try {
 
-                helper.__updateProgressbar(0.0, 'Collecting database objects schema');
+                helper.__updateProgressbar(0.0, 'Collecting database objects ...');
 
                 var schema = {
+                    schemas: await helper.__retrieveSchemas(client, schemas),
                     tables: await helper.__retrieveTables(client, schemas),
                     views: await helper.__retrieveViews(client, schemas),
                     materializedViews: await helper.__retrieveMaterializedViews(client, schemas),
@@ -123,13 +124,32 @@ var helper = {
                 //TODO: Do we need to retieve special table like TEMPORARY and UNLOGGED? for sure not temporary, but UNLOGGED probably yes.     
                 //TODO: Do we need to retrieve collation for both table and columns?           
 
-                helper.__updateProgressbar(1.0, 'Database objects schema colleted!');
+                helper.__updateProgressbar(1.0, 'Database objects collected!');
 
                 resolve(schema);
             } catch (e) {
                 reject(e);
             }
         });
+    },
+    __retrieveSchemas: async function(client, schemas) {
+        let result = {}
+
+        helper.__updateProgressbar(helper.__progressBarValue + 0.0001, 'Collecting schemas');
+
+        //Get schemas
+        const namespaces = await client.query(query.getSchemas(schemas))
+        const progressBarStep = 0.1999 / namespaces.rows.length;
+
+        await Promise.all(namespaces.rows.map(async(namespace) => {
+            result[namespace.nspname] = {
+                owner: namespace.owner
+            };
+
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collected SCHEMA ${namespace.nspname}`);
+        }));
+
+        return result;
     },
     __retrieveTables: async function(client, schemas) {
         let result = {}
@@ -138,7 +158,7 @@ var helper = {
 
         //Get tables
         const tables = await client.query(query.getTables(schemas))
-        const progressBarStep = 0.2499 / tables.rows.length;
+        const progressBarStep = 0.1999 / tables.rows.length;
 
         await Promise.all(tables.rows.map(async(table) => {
             const progressBarSubStep = progressBarStep / 5;
@@ -209,7 +229,6 @@ var helper = {
             let privileges = await client.query(query.getTablePrivileges(table.schemaname, table.tablename))
             privileges.rows.forEach(privilege => {
                 result[fullTableName].privileges[privilege.usename] = {
-                    all: privilege.all,
                     select: privilege.select,
                     insert: privilege.insert,
                     update: privilege.update,
@@ -223,6 +242,7 @@ var helper = {
             //TODO: Missing discovering of PARTITION
             //TODO: Missing discovering of TRIGGER
             //TODO: Missing discovering of GRANTS for COLUMNS
+            //TODO: Missing discovering of WITH GRANT OPTION, that is used to indcate if user\role can add GRANTS to other users
 
         }));
 
@@ -235,7 +255,7 @@ var helper = {
 
         //Get views
         const views = await client.query(query.getViews(schemas))
-        const progressBarStep = 0.2499 / views.rows.length;
+        const progressBarStep = 0.1999 / views.rows.length;
 
         await Promise.all(views.rows.map(async(view) => {
             let fullViewName = `"${view.schemaname}"."${view.viewname}"`;
@@ -251,7 +271,6 @@ var helper = {
             let privileges = await client.query(query.getViewPrivileges(view.schemaname, view.viewname))
             privileges.rows.forEach(privilege => {
                 result[fullViewName].privileges[privilege.usename] = {
-                    all: privilege.all,
                     select: privilege.select,
                     insert: privilege.insert,
                     update: privilege.update,
@@ -265,6 +284,7 @@ var helper = {
 
         //TODO: Missing discovering of TRIGGER
         //TODO: Missing discovering of GRANTS for COLUMNS
+        //TODO: Should we get TEMPORARY VIEW?
 
         return result;
     },
@@ -275,7 +295,7 @@ var helper = {
 
         //Get materialized views
         const views = await client.query(query.getMaterializedViews(schemas))
-        const progressBarStep = 0.2499 / views.rows.length;
+        const progressBarStep = 0.1999 / views.rows.length;
 
         await Promise.all(views.rows.map(async(view) => {
             const progressBarSubStep = progressBarStep / 2;
@@ -304,7 +324,6 @@ var helper = {
             let privileges = await client.query(query.getMaterializedViewPrivileges(view.schemaname, view.matviewname))
             privileges.rows.forEach(privilege => {
                 result[fullViewName].privileges[privilege.usename] = {
-                    all: privilege.all,
                     select: privilege.select,
                     insert: privilege.insert,
                     update: privilege.update,
@@ -327,7 +346,7 @@ var helper = {
 
         //Get functions
         const procedures = await client.query(query.getFunctions(schemas))
-        const progressBarStep = 0.2499 / procedures.rows.length;
+        const progressBarStep = 0.1999 / procedures.rows.length;
 
         await Promise.all(procedures.rows.map(async(procedure) => {
             let fullProcedureName = `"${procedure.nspname}"."${procedure.proname}"`;
@@ -342,13 +361,13 @@ var helper = {
 
             //Get function privileges
             let privileges = await client.query(query.getFunctionPrivileges(procedure.nspname, procedure.proname, procedure.argtypes))
+
             privileges.rows.forEach(privilege => {
                 result[fullProcedureName].privileges[privilege.usename] = {
                     execute: privilege.execute
                 }
             });
         }));
-
         return result;
     }
 }

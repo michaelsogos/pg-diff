@@ -5,16 +5,19 @@
             "port": 5432,
             "database": "hukocash",
             "user": "postgres",
-            "password": "postgres",
-            "schemas": ["public"]
+            "password": "postgres"
         },
         "target": {
             "host": "localhost",
             "port": 5432,
             "database": "hkdev",
             "user": "postgres",
-            "password": "postgres",
-            "schemas": ["public"]
+            "password": "postgres"
+        },
+        "options": {
+            "outputDirectory": "sqlscripts",
+            "schemaNamespace": ["public", "cici", "tte"],
+            "author": "@MSO - Michael Sogos"
         }
     }
 }
