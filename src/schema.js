@@ -92,7 +92,7 @@ const query = {
         return `SELECT p.pronamespace::regnamespace::name, p.proname, u.usename, 
                 HAS_FUNCTION_PRIVILEGE(u.usename,'"${schemaName}"."${functionName}"(${argTypes})','EXECUTE') as execute  
                 FROM pg_proc p, pg_user u 
-                WHERE p.proname='${functionName}' AND p.pronamespace::regnamespace::name = '"${schemaName}"'`
+                WHERE p.proname='${functionName}' AND p.pronamespace::regnamespace = '"${schemaName}"'::regnamespace`
     },
 }
 
@@ -103,13 +103,13 @@ var helper = {
         this.__progressBarValue = value;
         process.stdout.clearLine();
         process.stdout.cursorTo(0);
-        process.stdout.write(chalk.whiteBright(label) + ' ' + this.__progressBar.update(this.__progressBarValue));
+        process.stdout.write(this.__progressBar.update(this.__progressBarValue) + ' - ' + chalk.whiteBright(label));
     },
     collectSchemaObjects: async function(client, schemas) {
         return new Promise(async(resolve, reject) => {
             try {
 
-                helper.__updateProgressbar(0.0, 'Collecting database objects schema');
+                helper.__updateProgressbar(0.0, 'Collecting database objects ...');
 
                 var schema = {
                     schemas: await helper.__retrieveSchemas(client, schemas),
@@ -124,7 +124,7 @@ var helper = {
                 //TODO: Do we need to retieve special table like TEMPORARY and UNLOGGED? for sure not temporary, but UNLOGGED probably yes.     
                 //TODO: Do we need to retrieve collation for both table and columns?           
 
-                helper.__updateProgressbar(1.0, 'Database objects schema colleted!');
+                helper.__updateProgressbar(1.0, 'Database objects collected!');
 
                 resolve(schema);
             } catch (e) {
@@ -145,6 +145,8 @@ var helper = {
             result[namespace.nspname] = {
                 owner: namespace.owner
             };
+
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collected SCHEMA ${namespace.nspname}`);
         }));
 
         return result;
@@ -282,6 +284,7 @@ var helper = {
 
         //TODO: Missing discovering of TRIGGER
         //TODO: Missing discovering of GRANTS for COLUMNS
+        //TODO: Should we get TEMPORARY VIEW?
 
         return result;
     },
@@ -358,13 +361,13 @@ var helper = {
 
             //Get function privileges
             let privileges = await client.query(query.getFunctionPrivileges(procedure.nspname, procedure.proname, procedure.argtypes))
+
             privileges.rows.forEach(privilege => {
                 result[fullProcedureName].privileges[privilege.usename] = {
                     execute: privilege.execute
                 }
             });
         }));
-
         return result;
     }
 }
