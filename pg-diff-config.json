@@ -1,5 +1,5 @@
 {
-    "example": {
+    "development": {
         "source": {
             "host": "localhost",
             "port": 5432,
