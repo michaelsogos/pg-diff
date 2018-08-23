@@ -93,3 +93,7 @@ Run the tool typing on a shell ```pg-diff development initial-script```
 
 If you need help types ```pg-diff -h```
 
+### Problems or missing feature?
+
+As any other software, this library can be improved, so please for any question don't exitate to open an issue on github [here](https://github.com/michaelsogos/pg-diff/issues).
+
