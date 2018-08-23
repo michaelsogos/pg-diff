@@ -29,7 +29,7 @@ Of course when a team member checkout latest code changes from versioning (we lo
 
 ### How this library works
 
-Actually this library is just a CLI TOOL (because we love nodejs but also we works with other languages\frameworks) to stay decoupled from your IDE of choice; in this way you can use this library even if you don't work with NodeJS.
+Actually this library is just a CLI tool (because we love nodejs but also we works with other languages\frameworks) to stay decoupled from your IDE of choice; in this way you can use this library even if you don't work with NodeJS.
 
 As a CLI tool and to keep things simple (easier to integrate with your custom devops) all you need to do is:
 1. having a json config file named ```"pg-diff-config.json"``` where you will specify everything the library need to know
@@ -41,7 +41,7 @@ That's all, take your time for a coffee :smiley:!
 
 Install the library with ```npm install -g pg-diff-cli```
 
-Create a config file in your project folder (don't forget to run ```pg-diff``` command from same folder where config file exists).
+Create a config file in your project folder (don't forget to run ```pg-diff``` command from same folder where config file exists), here you have an example.
 ``` JSON
 {
     "development": {
