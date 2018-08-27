@@ -1,5 +1,5 @@
 {
-    "example": {
+    "development": {
         "source": {
             "host": "localhost",
             "port": 5432,
@@ -16,8 +16,24 @@
         },
         "options": {
             "outputDirectory": "sqlscripts",
-            "schemaNamespace": ["public", "cici", "tte"],
-            "author": "@MSO - Michael Sogos"
+            "schemaNamespace": ["public"],
+            "author": "@MSO - Michael Sogos",
+            "dataCompare": {
+                "enable": true,
+                "tables": {
+                    "pippo": {
+                        "keyFields": ["id_reason"],
+                        "schema": "public"
+                    },
+                    "reason_enum": {
+                        "keyFields": ["id_reason"]
+                    },
+                    "test1": {
+                        "keyFields": ["id_test"],
+                        "schema": "public"
+                    }
+                }
+            }
         }
     }
 }
