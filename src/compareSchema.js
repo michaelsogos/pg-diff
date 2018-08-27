@@ -1,4 +1,4 @@
-const sql = require('./sql')
+const sql = require('./sqlScriptGenerator')
 const { Progress } = require('clui');
 const chalk = require('chalk');
 
@@ -19,19 +19,6 @@ var helper = {
             this.__finalScripts = this.__finalScripts.concat(this.__tempScripts);
             this.__finalScripts.push(`\n--- END ${actionLabel} ---\n`);
         }
-    },
-    compareDatabaseObjects: function(sourceSchema, targetSchema) {
-        this.__updateProgressbar(0.0, 'Comparing database objects ...');
-
-        this.__compareSchemas(sourceSchema.schemas, targetSchema.schemas);
-        this.__compareTables(sourceSchema.tables, targetSchema.tables);
-        this.__compareViews(sourceSchema.views, targetSchema.views);
-        this.__compareMaterializedViews(sourceSchema.materializedViews, targetSchema.materializedViews);
-        this.__compareProcedures(sourceSchema.functions, targetSchema.functions);
-
-        this.__updateProgressbar(1.0, 'Database objects compared!');
-
-        return this.__finalScripts;
     },
     __compareSchemas: function(sourceSchemas, targetSchemas) {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing schemas');
@@ -273,6 +260,19 @@ var helper = {
                 this.__tempScripts.push(sql.generateProcedureRoleGrantsScript(procedure, argTypes, role, sourceProcedurePrivileges[role]))
             }
         }
+    },
+    compareDatabaseObjects: function(sourceSchema, targetSchema) {
+        this.__updateProgressbar(0.0, 'Comparing database objects ...');
+
+        this.__compareSchemas(sourceSchema.schemas, targetSchema.schemas);
+        this.__compareTables(sourceSchema.tables, targetSchema.tables);
+        this.__compareViews(sourceSchema.views, targetSchema.views);
+        this.__compareMaterializedViews(sourceSchema.materializedViews, targetSchema.materializedViews);
+        this.__compareProcedures(sourceSchema.functions, targetSchema.functions);
+
+        this.__updateProgressbar(1.0, 'Database objects compared!');
+
+        return this.__finalScripts;
     }
 }
 

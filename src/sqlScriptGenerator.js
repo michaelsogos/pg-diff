@@ -276,6 +276,71 @@ var helper = {
         let script = `\nALTER FUNCTION ${procedure}(${argTypes}) OWNER TO ${owner};`;
         //console.log(script);
         return script;
+    },
+    generateUpdateTableRecordScript: function(table, fields, keyFieldsMap, changes) {
+        let updates = [];
+        for (let field in changes) {
+            updates.push(`"${field}" = ${this.__generateSqlFormattedValue(field,fields,changes[field])}`);
+        }
+
+        let conditions = [];
+        for (let condition in keyFieldsMap) {
+            conditions.push(`"${condition}" = ${this.__generateSqlFormattedValue(condition, fields, keyFieldsMap[condition])}`);
+        }
+
+        let script = `\nUPDATE ${table} SET ${updates.join(', ')} WHERE ${conditions.join(' AND ')};\n`;
+        return script;
+    },
+    generateInsertTableRecordScript: function(table, record, fields) {
+        let fieldNames = [];
+        let fieldValues = [];
+        for (let field in record) {
+            fieldNames.push(`"${field}"`);
+            fieldValues.push(this.__generateSqlFormattedValue(field, fields, record[field]));
+        }
+
+        let script = `\nINSERT INTO ${table} (${fieldNames.join(', ')}) VALUES (${fieldValues.join(', ')});\n`;
+        return script;
+    },
+    generateDeleteTableRecordScript: function(table, fields, keyFieldsMap) {
+        let conditions = [];
+        for (let condition in keyFieldsMap) {
+            conditions.push(`"${condition}" = ${this.__generateSqlFormattedValue(condition, fields, keyFieldsMap[condition])}`);
+        }
+
+        let script = `\nDELETE FROM ${table} WHERE ${conditions.join(' AND ')};\n`;
+        return script;
+    },
+    __generateSqlFormattedValue: function(fieldName, fields, value) {
+        let dataTypeId = fields.find((field) => {
+            return fieldName === field.name
+        }).dataTypeID;
+
+        let dataTypeCategory = global.dataTypes.find((dataType) => {
+            return dataType.oid === dataTypeId
+        }).typcategory;
+
+        switch (dataTypeCategory) {
+            case 'A': //ARRAY
+            case 'D': //DATE TIME
+            case 'R': //RANGE
+            case 'S': //STRING
+            case 'U': //BIT
+                return `'${value}'`; //Value should have also curly braket
+            case 'B': //BOOL
+            case 'E': //ENUM
+            case 'G': //GEOMETRIC
+            case 'I': //NETWORK ADDRESS
+            case 'N': //NUMERIC
+            case 'T': //TIMESPAN
+                return value;
+            case 'X': //UNKNOWN
+            case 'U': //USER TYPE
+            case 'P': //PSEUDO TYPE
+            case 'C': //COMPOSITE TYPE
+            default:
+                throw new Error(`The data type category ${dataTypeCategory} is not recognized!`);
+        }
     }
 }
 

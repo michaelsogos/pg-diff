@@ -6,8 +6,10 @@ const figlet = require('figlet');
 const fs = require('fs');
 const path = require('path');
 const pjson = require('./package.json');
-const schema = require('./src/schema');
-const compare = require('./src/compare');
+const schema = require('./src/retrieveSchema');
+const compareSchema = require('./src/compareSchema');
+const data = require('./src/retrieveData');
+const compareRecords = require('./src/compareRecords');
 const { Client } = require('pg');
 const log = console.log;
 
@@ -54,6 +56,7 @@ function __printOptions() {
     log(chalk.yellow("    Script Author: ") + chalk.green(config.options.author));
     log(chalk.yellow(" Output Directory: ") + chalk.green(path.resolve(process.cwd(), config.options.outputDirectory)));
     log(chalk.yellow("Schema Namespaces: ") + chalk.green(config.options.schemaNamespace));
+    log(chalk.yellow("     Data Compare: ") + chalk.green(config.options.dataCompare.enable ? 'ENABLED' : 'DISABLED'));
     log();
 }
 
@@ -138,22 +141,49 @@ function __initDbConnections() {
 async function __run() {
     try {
         log();
-        log(chalk.yellow("Collect SOURCE database objects"))
+        log(chalk.yellow("Collect SOURCE database objects"));
         let sourceSchema = await schema.collectSchemaObjects(sourceClient, config.options.schemaNamespace);
 
         log();
         log();
-        log(chalk.yellow("Collect TARGET database objects"))
+        log(chalk.yellow("Collect TARGET database objects"));
         let targetSchema = await schema.collectSchemaObjects(targetClient, config.options.schemaNamespace);
 
         log();
         log();
-        log(chalk.yellow("Compare SOURCE with TARGET database objects"))
-        let scripts = compare.compareDatabaseObjects(sourceSchema, targetSchema);
+        log(chalk.yellow("Compare SOURCE with TARGET database objects"));
+        let scripts = compareSchema.compareDatabaseObjects(sourceSchema, targetSchema);
 
         //console.dir(scripts, { depth: null });
 
-        await __saveSqlScript(scripts);
+        if (config.options.dataCompare.enable) {
+            global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+
+            log();
+            log();
+            log(chalk.yellow("Collect SOURCE tables records"));
+            let sourceTablesRecords = await data.collectTablesRecords(sourceClient, config.options.dataCompare.tables);
+
+            log();
+            log();
+            log(chalk.yellow("Collect TARGET tables records"));
+            let targetTablesRecords = await data.collectTablesRecords(targetClient, config.options.dataCompare.tables);
+
+            log();
+            log();
+            log(chalk.yellow("Compare SOURCE with TARGET database table records"));
+            scripts = scripts.concat(compareRecords.compareTablesRecords(config.options.dataCompare.tables, sourceTablesRecords, targetTablesRecords));
+        } else {
+            log();
+            log();
+            log(chalk.yellow("Data compare not enabled!"));
+        }
+
+        let scriptFilePath = await __saveSqlScript(scripts);
+
+        log();
+        log();
+        log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
 
         process.exit();
 
@@ -186,7 +216,7 @@ async function __saveSqlScript(scriptLines) {
 
         file.on('error', reject);
 
-        file.on('finish', resolve);
+        file.on('finish', () => resolve(scriptPath));
 
         let titleLength = config.options.author.length > (now).toISOString().length ? config.options.author.length : (now).toISOString().length;
 
@@ -194,7 +224,6 @@ async function __saveSqlScript(scriptLines) {
         file.write(`/*** SCRIPT AUTHOR: ${config.options.author.padEnd(titleLength)} ***/\n`);
         file.write(`/***    CREATED ON: ${(now).toISOString().padEnd(titleLength)} ***/\n`);
         file.write(`/******************${'*'.repeat(titleLength+2)}***/\n`);
-
 
         scriptLines.forEach(function(line) {
             file.write(line);
