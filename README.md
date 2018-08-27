@@ -15,7 +15,7 @@ Another issue we resolved is about keep a numeric version of sql scripts, that i
 For this reason our strategy is to create a numeric version of sql scripts generated based on date and time related to NOW in UTC timezone; this helps also on working together with remote teams (image Italian team that work on same project with an Indian team).
 
 Of course this library produce good sql code quality for just postgresql, but it is not enought, the aren't tools that we tried (and we tried a lot :smiley:) that can assure you about correctness of sql scripts generated, because there are a plenty of situation for which a snippet of sql code cannot be executed (e.g.: Add a new column not nullable to a table without specify a default value, or change grants pivileges to a user that not exists on destination database); then it is mandatory to **review sql scripts** before commit changes or release it.  
-For this reason the library add an hint (all hints starts with "WARN:") as comment close to the involved sql script line, in this way it will be easier to find out potential problematic sql commands.  
+For this reason the library add an hint (all hints starts with "WARN:" or "ERROR:") as comment close to the involved sql script line, in this way it will be easier to find out potential problematic sql commands.  
 This is of course our **MAIN IMPORTANT FEATURE** missing on any tried libraries that can speed up a lot when developer check if sql script is compliant to its requirements.
 
 Finally this library is **A GREAT HELP ON DETECTING DATABASE CHANGES**, and in our case it speed up us over 50% of time spent on keep databases synchronized.
