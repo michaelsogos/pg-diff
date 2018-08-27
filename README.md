@@ -62,7 +62,19 @@ Create a config file in your project folder (don't forget to run ```pg-diff``` c
         "options": {
             "outputDirectory": "sqlscripts",
             "schemaNamespace": ["public", "other-namespace"],
-            "author": "your-name-or-nickname-or-anything-else"
+            "author": "your-name-or-nickname-or-anything-else",            
+            "dataCompare": {
+                "enable": true,
+                "tables": {
+                    "my-table-name": {
+                        "keyFields": ["list-of-key-fields-name"],
+                        "schema": "public or any-other-namespace"
+                    },
+                    "my-table-2-name": {
+                        "keyFields": ["list-of-key-fields-name"]
+                    }
+                }
+            }            
         }
     },
     "quality": {
