@@ -44,7 +44,7 @@ Install the library with:
 npm install -g pg-diff-cli
 ```
 
-Create a config file in your project folder (don't forget to run ```pg-diff``` command from same folder where config file exists), here you have an example.
+Create a config file in your project folder like the below example:  
 ```javascript
 {
     "development": { //At least one configuration must exists, but you can have many
