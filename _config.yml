@@ -1,3 +1,5 @@
 theme: jekyll-theme-leap-day
 plugins:
   - jemoji
+syntax-highlighting:
+  enabled : true
