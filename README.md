@@ -48,30 +48,30 @@ Create a config file in your project folder like the below example:
 ```javascript
 {
     "development": { //At least one configuration must exists, but you can have many
-        "source": {
-            "host": "localhost",
-            "port": 5432,
-            "database": "my-source-db",
-            "user": "postgres",
-            "password": "put-password-here"
+        "source": { //Specify here connection to the source database
+            "host": "localhost", //Ip address or hostname
+            "port": 5432, //Server port
+            "database": "my-source-db", //Database name
+            "user": "postgres", //Username to access to database, better to have admin rights to access to pg_catalog schema
+            "password": "put-password-here" //Password to access to database
         },
-        "target": {
+        "target": { //Specify here connection to the target database
             "host": "localhost",
             "port": 5432,
             "database": "my-target-db",
             "user": "postgres",
             "password": "put-password-here"
         },
-        "options": {
-            "outputDirectory": "sqlscripts",
-            "schemaNamespace": ["public", "other-namespace"],
-            "author": "your-name-or-nickname-or-anything-else",            
-            "dataCompare": {
-                "enable": true,
-                "tables": {
-                    "my-table-name": {
-                        "keyFields": ["list-of-key-fields-name"],
-                        "schema": "public or any-other-namespace"
+        "options": { //This section is mandatory
+            "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
+            "schemaNamespace": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared
+            "author": "your-name-or-nickname-or-anything-else", //This option is mandatory but the string can be empty
+            "dataCompare": { //This option is mandatory
+                "enable": true, //False to disable record comparing
+                "tables": { //This option is mandatory in case the above "enable" is true
+                    "my-table-name": { //The name of the table without schema
+                        "keyFields": ["list-of-key-fields-name"], //The comma-separated list of fields name that can be used to identify rows uniquely
+                        "schema": "public or any-other-namespace" //The name of the schema where table exists, if not specified "public" will be used instead
                     },
                     "my-table-2-name": {
                         "keyFields": ["list-of-key-fields-name"]
@@ -79,38 +79,17 @@ Create a config file in your project folder like the below example:
                 }
             }            
         }
-    },
-    "quality": {
-        "source": {
-            "host": "localhost",
-            "port": 5432,
-            "database": "my-source-db",
-            "user": "postgres",
-            "password": "put-password-here"
-        },
-        "target": {
-            "host": "localhost",
-            "port": 5432,
-            "database": "my-target-db",
-            "user": "postgres",
-            "password": "put-password-here"
-        },
-        "options": {
-            "outputDirectory": "sqlscripts",
-            "schemaNamespace": ["public"],
-            "author": "as-you-prefer"
-        }
     }
 }
 ```
 
 Run the tool typing on a shell:  
-```powershell
+```bash
 pg-diff development initial-script
 ```
 
 If you need help types:  
-```powershell
+```bash
 pg-diff -h
 ```
 
