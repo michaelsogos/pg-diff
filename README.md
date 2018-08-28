@@ -87,6 +87,7 @@ Run the tool typing on a shell:
 ```bash
 pg-diff development initial-script
 ```
+It will generate a file like: **20180828103045123_initial-script.sql** under the **{outputDirectory}** folder
 
 If you need help types:  
 ```bash
