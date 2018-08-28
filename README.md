@@ -42,9 +42,9 @@ That's all, take your time for a coffee :smiley:!
 Install the library with ```npm install -g pg-diff-cli```
 
 Create a config file in your project folder (don't forget to run ```pg-diff``` command from same folder where config file exists), here you have an example.
-```json
+```json5
 {
-    "development": {
+    "development": { //At least one configuration must exists, but you can have many
         "source": {
             "host": "localhost",
             "port": 5432,
