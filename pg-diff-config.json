@@ -18,6 +18,7 @@
             "outputDirectory": "sqlscripts",
             "schemaNamespace": ["public"],
             "author": "@MSO - Michael Sogos",
+            "idempotent": false,
             "dataCompare": {
                 "enable": true,
                 "tables": {
