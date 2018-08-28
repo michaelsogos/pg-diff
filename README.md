@@ -40,7 +40,7 @@ That's all, take your time for a coffee :smiley:!
 ### Getting Started
 
 Install the library with:  
-```shell_session
+```bash
 npm install -g pg-diff-cli
 ```
 
@@ -104,9 +104,15 @@ Create a config file in your project folder like the below example:
 }
 ```
 
-Run the tool typing on a shell ```pg-diff development initial-script```
+Run the tool typing on a shell:  
+```powershell
+pg-diff development initial-script
+```
 
-If you need help types ```pg-diff -h```
+If you need help types:  
+```powershell
+pg-diff -h
+```
 
 ### Problems or missing feature?
 
