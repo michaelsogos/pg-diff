@@ -66,7 +66,7 @@ Create a config file in your project folder like the below example:
             "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
             "schemaNamespace": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared
             "author": "your-name-or-nickname-or-anything-else", //This option is mandatory but the string can be empty
-            "idempotent: true, //When true will create safe pgsql code in order to not throw exceptions in case of re-execution of the script, when false will create standard sql code but in case for any reason the script fail during execution it could be hard to rollback changes and re-execution probably will throw exceptions
+            "idempotent": true, //When true will create safe pgsql code in order to not throw exceptions in case of re-execution of the script, when false will create standard sql code but in case for any reason the script fail during execution it could be hard to rollback changes and re-execution probably will throw exceptions
             "dataCompare": { //This option is mandatory
                 "enable": true, //False to disable record comparing
                 "tables": { //This option is mandatory in case the above "enable" is true
