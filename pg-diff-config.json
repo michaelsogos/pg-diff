@@ -15,10 +15,12 @@
             "password": "postgres"
         },
         "options": {
-            "outputDirectory": "sqlscripts",
-            "schemaNamespace": ["public"],
             "author": "@MSO - Michael Sogos",
-            "idempotent": false,
+            "outputDirectory": "db_migration",
+            "schemaCompare": {
+                "namespaces": ["public"],
+                "idempotentScript": true
+            },
             "dataCompare": {
                 "enable": true,
                 "tables": {
@@ -32,8 +34,16 @@
                     "test1": {
                         "keyFields": ["id_test"],
                         "schema": "public"
+                    },
+                    "test2": {
+                        "keyFields": ["column2"],
+                        "schema": "public"
                     }
                 }
+            },
+            "migration": {
+                "tableSchema": "public",
+                "tableName": "migrations"
             }
         }
     }

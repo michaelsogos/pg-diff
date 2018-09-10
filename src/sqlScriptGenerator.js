@@ -1,6 +1,6 @@
 const hints = {
     addColumnNotNullableWithoutDefaultValue: " --WARN: Add a new column not nullable without a default value can occure in a sql error during execution!",
-    changeColumnDataType: " --WARN: Change column data type can occure in a auto-casting sql error during execution, is recommended to use the keyword USING to include a casting logic!",
+    changeColumnDataType: " --WARN: Change column data type can occure in a casting error, the suggested casting expression is the default one and may not fit your needs!",
     dropColumn: " --WARN: Drop column can occure in data loss!",
     potentialRoleMissing: " --WARN: Grant\\Revoke privileges to a role can occure in a sql error during execution if role is missing to the target database!"
 }
@@ -59,7 +59,7 @@ var helper = {
         return definitions;
     },
     generateCreateSchemaScript: function(schema, owner) {
-        let script = `\nCREATE ${global.config.options.idempotent?'SCHEMA IF NOT EXISTS':'SCHEMA'} ${schema} AUTHORIZATION ${owner};\n`;
+        let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'SCHEMA IF NOT EXISTS':'SCHEMA'} ${schema} AUTHORIZATION ${owner};\n`;
         //console.log(script);
         return script;
     },
@@ -82,7 +82,7 @@ var helper = {
         let indexes = [];
         for (let index in schema.indexes) {
             let definition = schema.indexes[index].definition;
-            if (global.config.options.idempotent) {
+            if (global.config.options.schemaCompare.idempotentScript) {
                 definition = definition.replace('CREATE INDEX', 'CREATE INDEX IF NOT EXISTS');
                 definition = definition.replace('CREATE UNIQUE INDEX', 'CREATE UNIQUE INDEX IF NOT EXISTS');
             }
@@ -92,17 +92,17 @@ var helper = {
 
         //Generate privileges script
         let privileges = [];
-        privileges.push(`ALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} OWNER TO ${schema.owner};\n`);
+        privileges.push(`ALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} OWNER TO ${schema.owner};\n`);
         for (let role in schema.privileges) {
             privileges = privileges.concat(this.__generateTableGrantsDefinition(table, role, schema.privileges[role]))
         }
 
-        let script = `\nCREATE ${global.config.options.idempotent?'TABLE IF NOT EXISTS ':'TABLE'} ${table} (\n\t${columns.join(',\n\t')}\n)\n${options};\n${indexes.join('\n')}\n${privileges.join('\n')}\n`
-            //console.log(script)
+        let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'TABLE IF NOT EXISTS':'TABLE'} ${table} (\n\t${columns.join(',\n\t')}\n)\n${options};\n${indexes.join('\n')}\n${privileges.join('\n')}\n`;
+        //console.log(script)
         return script;
     },
     generateAddTableColumnScript: function(table, column, schema) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} ADD ${global.config.options.idempotent?'COLUMN IF NOT EXISTS':'COLUMN'} ${this.__generateColumnDefinition(column, schema)};`
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} ADD ${global.config.options.schemaCompare.idempotentScript?'COLUMN IF NOT EXISTS':'COLUMN'} ${this.__generateColumnDefinition(column, schema)};`
         if (script.includes('NOT NULL') && !script.includes('DEFAULT'))
             script += hints.addColumnNotNullableWithoutDefaultValue;
 
@@ -116,15 +116,16 @@ var helper = {
             definitions.push(`ALTER COLUMN ${column} ${changes.nullable? 'DROP NOT NULL': 'SET NOT NULL'}`);
 
         if (changes.hasOwnProperty('datatype')) {
-            definitions.push(`${hints.changeColumnDataType}`)
-            definitions.push(`ALTER COLUMN ${column} SET DATA TYPE ${this.__generateColumnDataTypeDefinition(changes)}`);
+            definitions.push(`${hints.changeColumnDataType}`);
+            let dataTypeDefinition = this.__generateColumnDataTypeDefinition(changes);
+            definitions.push(`ALTER COLUMN ${column} SET DATA TYPE ${dataTypeDefinition} USING ${column}::${dataTypeDefinition}`);
         }
 
         if (changes.hasOwnProperty('default'))
             definitions.push(`ALTER COLUMN ${column} ${changes.default?'SET':'DROP'} DEFAULT ${changes.default||''}`);
 
 
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table}\n\t${definitions.join(',\n\t')};\n`
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table}\n\t${definitions.join(',\n\t')};\n`
 
         //console.log(script);
 
@@ -133,37 +134,32 @@ var helper = {
         return script;
     },
     generateDropTableColumnScript: function(table, column) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.idempotent?'COLUMN IF EXISTS':'COLUMN'} ${column} CASCADE;${hints.dropColumn}\n`;
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.schemaCompare.idempotentScript?'COLUMN IF EXISTS':'COLUMN'} ${column} CASCADE;${hints.dropColumn}\n`;
         //console.log(script);
         return script;
     },
     generateAddTableConstraintScript: function(table, constraint, schema) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} ADD CONSTRAINT ${constraint} ${schema.definition};\n`;
-        //console.log(script);
-        return script;
-    },
-    generateChangeTableConstraintScript: function(table, constraint, schema) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.idempotent?'CONSTRAINT IF EXISTS':'CONSTRAINT'} ${constraint}, ADD CONSTRAINT ${constraint} ${schema.definition};\n`;
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} ADD CONSTRAINT ${constraint} ${schema.definition};\n`;
         //console.log(script);
         return script;
     },
     generateDropTableConstraintScript: function(table, constraint) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.idempotent?'CONSTRAINT IF EXISTS':'CONSTRAINT'} ${constraint};\n`;
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.schemaCompare.idempotentScript?'CONSTRAINT IF EXISTS':'CONSTRAINT'} ${constraint};\n`;
         //console.log(script);
         return script;
     },
     generateChangeTableOptionsScript: function(table, options) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} SET ${options.withOids?'WITH':'WITHOUT'} OIDS;\n`;
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} SET ${options.withOids?'WITH':'WITHOUT'} OIDS;\n`;
         //console.log(script);
         return script;
     },
     generateChangeIndexScript: function(index, definition) {
-        let script = `\nDROP ${global.config.options.idempotent?'INDEX IF EXISTS':'INDEX'} ${index};\n${definition};\n`;
+        let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'INDEX IF EXISTS':'INDEX'} ${index};\n${definition};\n`;
         //console.log(script);
         return script;
     },
     generateDropIndexScript: function(index) {
-        let script = `\nDROP ${global.config.options.idempotent?'INDEX IF EXISTS':'INDEX'} ${index};\n`;
+        let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'INDEX IF EXISTS':'INDEX'} ${index};\n`;
         //console.log(script);
         return script;
     },
@@ -201,24 +197,24 @@ var helper = {
         return script;
     },
     generateChangeTableOwnerScript: function(table, owner) {
-        let script = `\nALTER ${global.config.options.idempotent?'TABLE IF EXISTS':'TABLE'} ${table} OWNER TO ${owner};\n`;
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} OWNER TO ${owner};\n`;
         //console.log(script);
         return script;
     },
     generateCreateViewScript: function(view, schema) {
         //Generate privileges script
         let privileges = [];
-        privileges.push(`ALTER ${global.config.options.idempotent?'VIEW IF EXISTS':'VIEW'} ${view} OWNER TO ${schema.owner};`);
+        privileges.push(`ALTER ${global.config.options.schemaCompare.idempotentScript?'VIEW IF EXISTS':'VIEW'} ${view} OWNER TO ${schema.owner};`);
         for (let role in schema.privileges) {
             privileges = privileges.concat(this.__generateTableGrantsDefinition(view, role, schema.privileges[role]))
         }
 
-        let script = `\nCREATE ${global.config.options.idempotent? 'OR REPLACE VIEW':'VIEW'} ${view} AS ${schema.definition}\n${privileges.join('\n')}\n`;
+        let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript? 'OR REPLACE VIEW':'VIEW'} ${view} AS ${schema.definition}\n${privileges.join('\n')}\n`;
         //console.log(script)
         return script;
     },
-    generateChangeViewScript: function(view, schema) {
-        let script = `\nDROP ${global.config.options.idempotent?'VIEW IF EXISTS':'VIEW'} ${view};\n${this.generateCreateViewScript(view,schema)}`;
+    generateDropViewScript: function(view) {
+        let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'VIEW IF EXISTS':'VIEW'} ${view};`;
         //console.log(script)
         return script;
     },
@@ -232,17 +228,17 @@ var helper = {
 
         //Generate privileges script
         let privileges = [];
-        privileges.push(`ALTER ${global.config.options.idempotent?'MATERIALIZED VIEW IF EXISTS':'MATERIALIZED VIEW'} ${view} OWNER TO ${schema.owner};\n`);
+        privileges.push(`ALTER ${global.config.options.schemaCompare.idempotentScript?'MATERIALIZED VIEW IF EXISTS':'MATERIALIZED VIEW'} ${view} OWNER TO ${schema.owner};\n`);
         for (let role in schema.privileges) {
             privileges = privileges.concat(this.__generateTableGrantsDefinition(view, role, schema.privileges[role]))
         }
 
-        let script = `\nCREATE ${global.config.options.idempotent?'MATERIALIZED VIEW IF NOT EXISTS':'MATERIALIZED VIEW'} ${view} AS ${schema.definition}\n${indexes.join('\n')}\n${privileges.join('\n')}\n`;
+        let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'MATERIALIZED VIEW IF NOT EXISTS':'MATERIALIZED VIEW'} ${view} AS ${schema.definition}\n${indexes.join('\n')}\n${privileges.join('\n')}\n`;
         //console.log(script)
         return script;
     },
-    generateChangeMaterializedViewScript: function(view, schema) {
-        let script = `\nDROP ${global.config.options.idempotent?'MATERIALIZED VIEW IF EXISTS':'MATERIALIZED VIEW'} ${view};\n${this.generateCreateMaterializedViewScript(view,schema)}`;
+    generateDropMaterializedViewScript: function(view) {
+        let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'MATERIALIZED VIEW IF EXISTS':'MATERIALIZED VIEW'} ${view};`;
         //console.log(script)
         return script;
     },
@@ -259,7 +255,7 @@ var helper = {
         return script;
     },
     generateChangeProcedureScript: function(procedure, schema) {
-        let script = `\nDROP ${global.config.options.idempotent?'FUNCTION IF EXISTS':'FUNCTION'} ${procedure}(${schema.argTypes});\n${this.generateCreateProcedureScript(procedure,schema)}`;
+        let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'FUNCTION IF EXISTS':'FUNCTION'} ${procedure}(${schema.argTypes});\n${this.generateCreateProcedureScript(procedure,schema)}`;
         //console.log(script)
         return script;
     },
@@ -283,15 +279,15 @@ var helper = {
         //console.log(script);
         return script;
     },
-    generateUpdateTableRecordScript: function(table, fields, keyFieldsMap, changes) {
+    generateUpdateTableRecordScript: function(table, fields, filterConditions, changes) {
         let updates = [];
         for (let field in changes) {
             updates.push(`"${field}" = ${this.__generateSqlFormattedValue(field,fields,changes[field])}`);
         }
 
         let conditions = [];
-        for (let condition in keyFieldsMap) {
-            conditions.push(`"${condition}" = ${this.__generateSqlFormattedValue(condition, fields, keyFieldsMap[condition])}`);
+        for (let condition in filterConditions) {
+            conditions.push(`"${condition}" = ${this.__generateSqlFormattedValue(condition, fields, filterConditions[condition])}`);
         }
 
         let script = `\nUPDATE ${table} SET ${updates.join(', ')} WHERE ${conditions.join(' AND ')};\n`;
@@ -318,6 +314,10 @@ var helper = {
         return script;
     },
     __generateSqlFormattedValue: function(fieldName, fields, value) {
+
+        if (value === null)
+            return 'NULL';
+
         let dataTypeId = fields.find((field) => {
             return fieldName === field.name
         }).dataTypeID;
@@ -347,6 +347,27 @@ var helper = {
             default:
                 throw new Error(`The data type category ${dataTypeCategory} is not recognized!`);
         }
+    },
+    generateMergeTableRecord(table, fields, changes, options) {
+        let fieldNames = [];
+        let fieldValues = [];
+        let updates = [];
+        for (let field in changes) {
+            fieldNames.push(`"${field}"`);
+            fieldValues.push(this.__generateSqlFormattedValue(field, fields, changes[field]));
+            updates.push(`"${field}" = ${this.__generateSqlFormattedValue(field,fields,changes[field])}`);
+        }
+
+        let conflictDefinition = "";
+        if (options.constraintName)
+            conflictDefinition = `ON CONSTRAINT ${options.constraintName}`;
+        else if (options.uniqueFields && options.uniqueFields.length > 0)
+            conflictDefinition = `("${options.uniqueFields.join('", "')}")`;
+        else
+            throw new Error(`Impossible to generate conflict definition for table ${table} record to merge!`);
+
+        let script = `\nINSERT INTO ${table} (${fieldNames.join(', ')}) VALUES (${fieldValues.join(', ')})\nON CONFLICT ${conflictDefinition}\nDO UPDATE SET ${updates.join(', ')}`;
+        return script;
     }
 }
 

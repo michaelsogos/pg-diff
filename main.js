@@ -16,14 +16,10 @@ const log = console.log;
 global.configName = '';
 global.scriptName = '';
 global.config = null;
+global.replayMigration = false;
 
 __printIntro();
 __readArguments();
-__loadConfig();
-__printOptions();
-__initDbConnections();
-__run();
-
 
 function __printHelp() {
     log();
@@ -32,12 +28,23 @@ function __printHelp() {
     log(chalk.magenta("===   pg-diff-cli   HELP   ==="));
     log(chalk.magenta("=============================="));
     log();
-    log(chalk.gray('OPTION     \t\tDESCRIPTION'));
-    log(chalk.green('-h, --help\t\t') + chalk.blue('To show this help.'));
+    log(chalk.gray('OPTION                \t\tDESCRIPTION'));
+    log(chalk.green('-h,  --help           \t\t') + chalk.blue('To show this help.'));
+    log(chalk.green('-c,  --compare        \t\t') + chalk.blue('To run compare and generate a patch file.'));
+    log(chalk.green('-m,  --migrate        \t\t') + chalk.blue('To run migration applying all missing patch files.'));
+    log(chalk.green('-mu, --migrate-upto   \t\t') + chalk.blue('To run migration applying all patch files till the specified patch file.'));
+    log(chalk.green('-mr, --migrate-replay \t\t') + chalk.blue('To run migration applying all missing or failed or stuck patch files.'));
     log();
     log();
-    log(chalk.gray("USAGE:   ") + chalk.yellow("pg-diff ") + chalk.cyan("{configuration name | or valid option} {script name}"));
-    log(chalk.gray("EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.cyan("development my-script"));
+    log(chalk.gray("TO COMPARE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("configuration-name script-name"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("development my-script"));
+    log();
+    log(chalk.gray("TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("[-m | -mr] ") + chalk.cyan("configuration-name"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-m ") + chalk.cyan("development"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mr ") + chalk.cyan("development"));
+    log();
+    log(chalk.gray("TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("configuration-name patch-file-name"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("development 20182808103040999_my-script.sql"));
     log();
     log();
 }
@@ -56,11 +63,11 @@ function __printIntro() {
 function __printOptions() {
     log();
     log(chalk.gray('CONFIGURED OPTIONS'))
-    log(chalk.yellow("    Script Author: ") + chalk.green(global.config.options.author));
-    log(chalk.yellow(" Output Directory: ") + chalk.green(path.resolve(process.cwd(), global.config.options.outputDirectory)));
-    log(chalk.yellow("Schema Namespaces: ") + chalk.green(global.config.options.schemaNamespace));
-    log(chalk.yellow("Idempotent Script: ") + chalk.green(global.config.options.idempotent ? 'ENABLED' : 'DISABLED'));
-    log(chalk.yellow("     Data Compare: ") + chalk.green(global.config.options.dataCompare.enable ? 'ENABLED' : 'DISABLED'));
+    log(chalk.yellow("         Script Author: ") + chalk.green(global.config.options.author));
+    log(chalk.yellow("      Output Directory: ") + chalk.green(path.resolve(process.cwd(), global.config.options.outputDirectory)));
+    log(chalk.yellow("     Schema Namespaces: ") + chalk.green(global.config.options.schemaCompare.namespaces));
+    log(chalk.yellow("     Idempotent Script: ") + chalk.green(global.config.options.schemaCompare.idempotentScript ? 'ENABLED' : 'DISABLED'));
+    log(chalk.yellow("          Data Compare: ") + chalk.green(global.config.options.dataCompare.enable ? 'ENABLED' : 'DISABLED'));
     log();
 }
 
@@ -72,17 +79,58 @@ function __readArguments() {
         process.exit();
     }
 
-    if (args.length == 1)
-        switch (args[0]) {
-            case '-h':
-            case '--help':
+    switch (args[0]) {
+        case '-h':
+        case '--help':
+            {
                 __printHelp();
                 process.exit();
-        }
+            }
+        case '-c':
+        case '--compare':
+            {
+                if (args.length != 3) {
+                    log(chalk.red('Missing arguments!'));
+                    __printHelp();
+                    process.exit();
+                }
+                global.configName = args[1];
+                global.scriptName = args[2];
+                __loadConfig();
+                __validateCompareConfig();
+                __printOptions();
+                __initDbConnections();
+                __runComparison();
+            }
+            break;
+        case '-m':
+        case '--migrate':
+        case '-mr':
+        case '--migrate-replay':
+            {
+                if (args.length != 2) {
+                    log(chalk.red('Missing arguments!'));
+                    __printHelp();
+                    process.exit();
+                }
 
-    if (args.length == 2) {
-        global.configName = args[0];
-        global.scriptName = args[1];
+                if (args[0] == '-mr' || args[0] == '--migrate-replay')
+                    global.replayMigration = true;
+
+                global.configName = args[1];
+                __loadConfig();
+                __validateMigrationConfig();
+                __printOptions();
+                __initDbConnections();
+                __runMigration();
+            }
+            break;
+        default:
+            {
+                log(chalk.red('Missing arguments!'));
+                __printHelp();
+                process.exit();
+            }
     }
 }
 
@@ -97,14 +145,32 @@ function __loadConfig() {
         if (!global.config.options)
             throw new Error('The configuration section "options" must exists !');
 
+        if (!global.config.source)
+            throw new Error('The configuration doesn\'t contains the section "source (object)" !');
+
+        if (!global.config.target)
+            throw new Error('The configuration doesn\'t contains the section "target (object)" !');
+
+    } catch (e) {
+        __handleError(e);
+        process.exitCode = -1;
+        process.exit();
+    }
+}
+
+function __validateCompareConfig() {
+    try {
         if (!global.config.options.outputDirectory)
             throw new Error('The configuration section "options" must contains property "outputDirectory (string)" !');
 
-        if (!global.config.options.schemaNamespace)
-            throw new Error('The configuration section "options" must contains property "schemaNamespace (array of strings)" !');
+        if (!global.config.options.schemaCompare)
+            throw new Error('The configuration section "options" must contains property "schemaCompare (object)" !');
 
-        if (!global.config.options.hasOwnProperty('idempotent'))
-            throw new Error('The configuration section "options" must contains property "idempotent (boolean)" !');
+        if (!global.config.options.schemaCompare.hasOwnProperty("namespaces"))
+            throw new Error('The configuration section "options.schemaCompare" must contains property "namespaces (array of strings)" !');
+
+        if (!global.config.options.schemaCompare.hasOwnProperty('idempotentScript'))
+            throw new Error('The configuration section "options.schemaCompare" must contains property "idempotentScript (boolean)" !');
 
         if (!global.config.options.dataCompare)
             throw new Error('The configuration section "options" must contains property "dataCompare (object)" !');
@@ -112,11 +178,24 @@ function __loadConfig() {
         if (!global.config.options.dataCompare.hasOwnProperty('enable'))
             throw new Error('The configuration section "options.dataCompare" must contains property "enable (boolean)" !');
 
-        if (!global.config.source)
-            throw new Error('The configuration doesn\'t contains the section "source (object)" !');
+    } catch (e) {
+        __handleError(e);
+        process.exitCode = -1;
+        process.exit();
+    }
+}
 
-        if (!global.config.target)
-            throw new Error('The configuration doesn\'t contains the section "target (object)" !');
+function __validateMigrationConfig() {
+    try {
+
+        if (!global.config.options.migration)
+            throw new Error('The configuration section "options" must contains property "migration (object)" !');
+
+        if (!global.config.options.migration.hasOwnProperty("tableSchema"))
+            throw new Error('The configuration section "options.migration" must contains property "tableSchema (string)" !');
+
+        if (!global.config.options.migration.hasOwnProperty('tableName'))
+            throw new Error('The configuration section "options.migration" must contains property "tableName (string)" !');
 
     } catch (e) {
         __handleError(e);
@@ -152,16 +231,16 @@ function __initDbConnections() {
     spinner.stop();
 }
 
-async function __run() {
+async function __runComparison() {
     try {
         log();
         log(chalk.yellow("Collect SOURCE database objects"));
-        let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaNamespace);
+        let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaCompare.namespaces);
 
         log();
         log();
         log(chalk.yellow("Collect TARGET database objects"));
-        let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaNamespace);
+        let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaCompare.namespaces);
 
         log();
         log();
@@ -245,4 +324,19 @@ async function __saveSqlScript(scriptLines) {
 
         file.end();
     });
+}
+
+async function __runMigration() {
+    try {
+        global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+        const migratePatch = require('./src/migratePatch');
+        await migratePatch.migrate();
+
+        process.exit();
+    } catch (e) {
+        __handleError(e);
+
+        process.exitCode = -1;
+        process.exit();
+    }
 }
