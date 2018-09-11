@@ -10,30 +10,36 @@
         "target": {
             "host": "localhost",
             "port": 5432,
-            "database": "hkdev",
+            "database": "hukocash_dev",
             "user": "postgres",
             "password": "postgres"
         },
         "options": {
-            "outputDirectory": "sqlscripts",
-            "schemaNamespace": ["public"],
             "author": "@MSO - Michael Sogos",
-            "idempotent": false,
+            "outputDirectory": "db_migration",
+            "schemaCompare": {
+                "namespaces": ["public"],
+                "idempotentScript": true
+            },
             "dataCompare": {
                 "enable": true,
                 "tables": {
-                    "pippo": {
-                        "keyFields": ["id_reason"],
+                    "settings": {
+                        "keyFields": ["id_setting"],
                         "schema": "public"
                     },
-                    "reason_enum": {
-                        "keyFields": ["id_reason"]
+                    "tax_regulations": {
+                        "keyFields": ["id_tax_regulation"]
                     },
-                    "test1": {
-                        "keyFields": ["id_test"],
+                    "vat_rates": {
+                        "keyFields": ["id_vat_rate"],
                         "schema": "public"
                     }
                 }
+            },
+            "migration": {
+                "tableSchema": "public",
+                "tableName": "migrations"
             }
         }
     }

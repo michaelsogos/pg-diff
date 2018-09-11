@@ -13,14 +13,14 @@ const query = {
         return `SELECT relhasoids FROM pg_class WHERE oid = '${tableName}'::regclass`
     },
     "getTableColumns": function(tableName) {
-        return `SELECT a.attname, a.attnotnull, t.typname, ad.adsrc,
+        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc, a.attidentity,
                 CASE 
-                    WHEN t.typname = 'numeric' THEN (a.atttypmod-4) >> 16
-                    WHEN t.typname = 'bpchar' or t.typname = 'varchar' THEN a.atttypmod-4
+                    WHEN t.typname = 'numeric' AND a.atttypmod > 0 THEN (a.atttypmod-4) >> 16
+                    WHEN (t.typname = 'bpchar' or t.typname = 'varchar') AND a.atttypmod > 0 THEN a.atttypmod-4
                     ELSE null
                 END AS precision,
                 CASE
-                    WHEN t.typname = 'numeric' THEN (a.atttypmod-4) & 65535
+                    WHEN t.typname = 'numeric' AND a.atttypmod > 0 THEN (a.atttypmod-4) & 65535
                     ELSE null
                 END AS scale 	
                 FROM pg_attribute a
@@ -82,6 +82,18 @@ const query = {
                 FROM pg_matviews v, pg_user u 
                 WHERE v.schemaname = '${schemaName}' and v.matviewname='${viewName}'`
     },
+    "getViewDependencies": function(schemaName, viewName) {
+        return `SELECT                 
+                n.nspname AS schemaname,
+                c.relname AS tablename,
+                a.attname AS columnname
+                FROM pg_rewrite AS r
+                INNER JOIN pg_depend AS d ON r.oid=d.objid
+                INNER JOIN pg_attribute a ON a.attnum = d.refobjsubid AND a.attrelid = d.refobjid AND a.attisdropped = false
+                INNER JOIN pg_class c ON c.oid = d.refobjid
+                INNER JOIN pg_namespace n ON n.oid = c.relnamespace                
+                WHERE r.ev_class='"${schemaName}"."${viewName}"'::regclass::oid AND d.refobjid <> '"${schemaName}"."${viewName}"'::regclass::oid`
+    },
     "getFunctions": function(schemas) {
         return `SELECT p.proname, n.nspname, pg_get_functiondef(p.oid) as definition, p.proowner::regrole::name as owner, oidvectortypes(proargtypes) as argtypes
                 FROM pg_proc p
@@ -108,7 +120,6 @@ var helper = {
     collectSchemaObjects: async function(client, schemas) {
         return new Promise(async(resolve, reject) => {
             try {
-
                 helper.__updateProgressbar(0.0, 'Collecting database objects ...');
 
                 var schema = {
@@ -138,7 +149,7 @@ var helper = {
         helper.__updateProgressbar(helper.__progressBarValue + 0.0001, 'Collecting schemas');
 
         //Get schemas
-        const namespaces = await client.query(query.getSchemas(schemas))
+        const namespaces = await client.query(query.getSchemas(schemas));
         const progressBarStep = 0.1999 / namespaces.rows.length;
 
         await Promise.all(namespaces.rows.map(async(namespace) => {
@@ -158,11 +169,9 @@ var helper = {
 
         //Get tables
         const tables = await client.query(query.getTables(schemas))
-        const progressBarStep = 0.1999 / tables.rows.length;
+        const progressBarStep = (0.1999 / tables.rows.length) / 5.0;
 
         await Promise.all(tables.rows.map(async(table) => {
-            const progressBarSubStep = progressBarStep / 5;
-
             let fullTableName = `"${table.schemaname}"."${table.tablename}"`;
             result[fullTableName] = {
                 columns: {},
@@ -173,25 +182,46 @@ var helper = {
                 owner: table.tableowner
             };
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting COLUMNS for table ${fullTableName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting COLUMNS for table ${fullTableName}`);
 
             //Get table columns
             const columns = await client.query(query.getTableColumns(fullTableName))
             columns.rows.forEach(column => {
                 let columnName = `"${column.attname}"`;
-                let isAutoIncrement = (column.adsrc && column.adsrc.startsWith('nextval') && column.adsrc.includes('_seq')) || false;
-                let defaultValue = isAutoIncrement ? '' : column.adsrc
-                let dataType = isAutoIncrement ? 'serial' : column.typname
+                let columnIdentity = null;
+                let defaultValue = column.adsrc;
+                let dataType = column.typname;
+
+                switch (column.attidentity) {
+                    case 'a':
+                        columnIdentity = 'ALWAYS';
+                        defaultValue = '';
+                        break;
+                    case 'd':
+                        columnIdentity = 'BY DEFAULT';
+                        defaultValue = '';
+                        break;
+                    default:
+                        if (column.adsrc && column.adsrc.startsWith('nextval') && column.adsrc.includes('_seq')) {
+                            defaultValue = '';
+                            dataType = 'serial';
+                        };
+                        break;
+                }
+
                 result[fullTableName].columns[columnName] = {
                     nullable: !column.attnotnull,
                     datatype: dataType,
+                    dataTypeID: column.typeid,
+                    dataTypeCategory: column.typcategory,
                     default: defaultValue,
                     precision: column.precision,
-                    scale: column.scale
+                    scale: column.scale,
+                    identity: columnIdentity
                 }
             });
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting CONSTRAINTS for table ${fullTableName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting CONSTRAINTS for table ${fullTableName}`);
 
             //Get table constraints
             let constraints = await client.query(query.getTableConstraints(fullTableName))
@@ -203,7 +233,7 @@ var helper = {
                 }
             });
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting OPTIONS for table ${fullTableName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting OPTIONS for table ${fullTableName}`);
 
             //Get table options
             let options = await client.query(query.getTableOptions(fullTableName))
@@ -213,7 +243,7 @@ var helper = {
                 }
             });
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting INDEXES for table ${fullTableName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting INDEXES for table ${fullTableName}`);
 
             //Get table indexes
             let indexes = await client.query(query.getTableIndexes(table.schemaname, table.tablename))
@@ -223,7 +253,7 @@ var helper = {
                 }
             });
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting PRIVILEGES for table ${fullTableName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting PRIVILEGES for table ${fullTableName}`);
 
             //Get table privileges
             let privileges = await client.query(query.getTablePrivileges(table.schemaname, table.tablename))
@@ -255,20 +285,21 @@ var helper = {
 
         //Get views
         const views = await client.query(query.getViews(schemas))
-        const progressBarStep = 0.1999 / views.rows.length;
+        const progressBarStep = (0.1999 / views.rows.length) / 2.0;
 
         await Promise.all(views.rows.map(async(view) => {
             let fullViewName = `"${view.schemaname}"."${view.viewname}"`;
             result[fullViewName] = {
                 definition: view.definition,
                 owner: view.viewowner,
-                privileges: {}
+                privileges: {},
+                dependencies: []
             };
 
             helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting PRIVILEGES for view ${fullViewName}`);
 
             //Get view privileges
-            let privileges = await client.query(query.getViewPrivileges(view.schemaname, view.viewname))
+            let privileges = await client.query(query.getViewPrivileges(view.schemaname, view.viewname));
             privileges.rows.forEach(privilege => {
                 result[fullViewName].privileges[privilege.usename] = {
                     select: privilege.select,
@@ -280,6 +311,18 @@ var helper = {
                     trigger: privilege.trigger
                 }
             });
+
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting DEPENDENCIES for view ${fullViewName}`);
+
+            //Get view dependencies
+            let dependencies = await client.query(query.getViewDependencies(view.schemaname, view.viewname));
+            dependencies.rows.forEach(dependency => {
+                result[fullViewName].dependencies.push({
+                    schemaName: dependency.schemaname,
+                    tableName: dependency.tablename,
+                    columnName: dependency.columnname
+                });
+            })
         }));
 
         //TODO: Missing discovering of TRIGGER
@@ -295,20 +338,19 @@ var helper = {
 
         //Get materialized views
         const views = await client.query(query.getMaterializedViews(schemas))
-        const progressBarStep = 0.1999 / views.rows.length;
+        const progressBarStep = (0.1999 / views.rows.length) / 3.0;
 
         await Promise.all(views.rows.map(async(view) => {
-            const progressBarSubStep = progressBarStep / 2;
-
             let fullViewName = `"${view.schemaname}"."${view.matviewname}"`;
             result[fullViewName] = {
                 definition: view.definition,
                 indexes: {},
                 owner: view.matviewowner,
-                privileges: {}
+                privileges: {},
+                dependencies: []
             };
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting INDEXES for materialized view ${fullViewName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting INDEXES for materialized view ${fullViewName}`);
 
             //Get view indexes
             let indexes = await client.query(query.getTableIndexes(view.schemaname, view.matviewname))
@@ -318,7 +360,7 @@ var helper = {
                 }
             });
 
-            helper.__updateProgressbar(helper.__progressBarValue + progressBarSubStep, `Collecting PRIVILEGES for materialized view ${fullViewName}`);
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting PRIVILEGES for materialized view ${fullViewName}`);
 
             //Get view privileges
             let privileges = await client.query(query.getMaterializedViewPrivileges(view.schemaname, view.matviewname))
@@ -333,6 +375,18 @@ var helper = {
                     trigger: privilege.trigger
                 }
             });
+
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting DEPENDENCIES for materialized view ${fullViewName}`);
+
+            //Get view dependencies
+            let dependencies = await client.query(query.getViewDependencies(view.schemaname, view.matviewname));
+            dependencies.rows.forEach(dependency => {
+                result[fullViewName].dependencies.push({
+                    schemaName: dependency.schemaname,
+                    tableName: dependency.tablename,
+                    columnName: dependency.columnname
+                });
+            })
         }));
 
         //TODO: Missing discovering of GRANTS for COLUMNS

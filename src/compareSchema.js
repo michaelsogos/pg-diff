@@ -5,8 +5,13 @@ const chalk = require('chalk');
 var helper = {
     __finalScripts: [],
     __tempScripts: [],
+    __droppedConstraints: [],
+    __droppedIndexes: [],
+    __droppedViews: [],
     __progressBar: new Progress(20),
     __progressBarValue: 0.0,
+    __sourceSchema: {},
+    __targetSchema: {},
     __updateProgressbar: function(value, label) {
         this.__progressBarValue = value;
         process.stdout.clearLine();
@@ -20,44 +25,46 @@ var helper = {
             this.__finalScripts.push(`\n--- END ${actionLabel} ---\n`);
         }
     },
-    __compareSchemas: function(sourceSchemas, targetSchemas) {
+    __compareSchemas: function() {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing schemas');
-        const progressBarStep = 0.1999 / Object.keys(sourceSchemas).length;
+        const progressBarStep = 0.1999 / Object.keys(this.__sourceSchema.schemas).length;
 
-        for (let schema in sourceSchemas) { //Get missing schemas on target
+        for (let schema in this.__sourceSchema.schemas) { //Get missing schemas on target
             this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing SCHEMA ${schema}`);
             this.__tempScripts = [];
 
-            if (!targetSchemas[schema]) { //Schema not exists on target database, then generate script to create schema
-                this.__tempScripts.push(sql.generateCreateSchemaScript(schema, sourceSchemas[schema].owner));
+            if (!this.__targetSchema.schemas[schema]) { //Schema not exists on target database, then generate script to create schema
+                this.__tempScripts.push(sql.generateCreateSchemaScript(schema, this.__sourceSchema.schemas[schema].owner));
             }
 
             this.__appendScripts(`CREATE SCHEMA ${schema}`);
         }
     },
-    __compareTables: function(sourceTables, targetTables) {
+    __compareTables: function() {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing tables');
-        const progressBarStep = 0.1999 / Object.keys(sourceTables).length;
+        const progressBarStep = 0.1999 / Object.keys(this.__sourceSchema.tables).length;
 
-        for (let table in sourceTables) { //Get new or changed tablestable
+        for (let table in this.__sourceSchema.tables) { //Get new or changed tablestable
             this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing TABLE ${table}`);
             this.__tempScripts = [];
+            this.__droppedConstraints = [];
+            this.__droppedIndexes = [];
             let actionLabel = '';
 
-            if (targetTables[table]) { //Table exists on both database, then compare table schema  
+            if (this.__targetSchema.tables[table]) { //Table exists on both database, then compare table schema  
                 actionLabel = 'ALTER';
 
-                this.__compareTableOptions(table, sourceTables[table].options, targetTables[table].options);
-                this.__compareTableColumns(table, sourceTables[table].columns, targetTables[table].columns);
-                this.__compareTableConstraints(table, sourceTables[table].constraints, targetTables[table].constraints);
-                this.__compareTableIndexes(sourceTables[table].indexes, targetTables[table].indexes);
-                this.__compareTablePrivileges(table, sourceTables[table].privileges, targetTables[table].privileges);
-                if (sourceTables[table].owner != targetTables[table].owner)
-                    this.__tempScripts.push(sql.generateChangeTableOwnerScript(table, sourceTables[table].owner));
+                this.__compareTableOptions(table, this.__sourceSchema.tables[table].options, this.__targetSchema.tables[table].options);
+                this.__compareTableColumns(table, this.__sourceSchema.tables[table].columns, this.__targetSchema.tables[table].columns, this.__targetSchema.tables[table].constraints, this.__targetSchema.tables[table].indexes);
+                this.__compareTableConstraints(table, this.__sourceSchema.tables[table].constraints, this.__targetSchema.tables[table].constraints);
+                this.__compareTableIndexes(this.__sourceSchema.tables[table].indexes, this.__targetSchema.tables[table].indexes);
+                this.__compareTablePrivileges(table, this.__sourceSchema.tables[table].privileges, this.__targetSchema.tables[table].privileges);
+                if (this.__sourceSchema.tables[table].owner != this.__targetSchema.tables[table].owner)
+                    this.__tempScripts.push(sql.generateChangeTableOwnerScript(table, this.__sourceSchema.tables[table].owner));
             } else { //Table not exists on target database, then generate the script to create table
                 actionLabel = 'CREATE';
 
-                this.__tempScripts.push(sql.generateCreateTableScript(table, sourceTables[table]));
+                this.__tempScripts.push(sql.generateCreateTableScript(table, this.__sourceSchema.tables[table]));
             }
 
             this.__appendScripts(`${actionLabel} TABLE ${table}`);
@@ -67,10 +74,10 @@ var helper = {
         if (sourceTableOptions.withOids != targetTableOptions.withOids)
             this.__tempScripts.push(sql.generateChangeTableOptionsScript(table, sourceTableOptions));
     },
-    __compareTableColumns: function(table, sourceTableColumns, targetTableColumns) {
+    __compareTableColumns: function(table, sourceTableColumns, targetTableColumns, targetTableConstraints, targetTableIndexes) {
         for (let column in sourceTableColumns) { //Get new or changed columns
             if (targetTableColumns[column]) { //Table column exists on both database, then compare column schema
-                this.__compareTableColumn(table, column, sourceTableColumns[column], targetTableColumns[column]);
+                this.__compareTableColumn(table, column, sourceTableColumns[column], targetTableColumns[column], targetTableConstraints, targetTableIndexes);
             } else { //Table column not exists on target database, then generate script to add column
                 this.__tempScripts.push(sql.generateAddTableColumnScript(table, column, sourceTableColumns[column]));
             }
@@ -80,7 +87,7 @@ var helper = {
                 this.__tempScripts.push(sql.generateDropTableColumnScript(table, column))
         }
     },
-    __compareTableColumn: function(table, column, sourceTableColumn, targetTableColumn) {
+    __compareTableColumn: function(table, column, sourceTableColumn, targetTableColumn, targetTableConstraints, targetTableIndexes) {
         let changes = {};
 
         if (sourceTableColumn.nullable != targetTableColumn.nullable)
@@ -90,6 +97,8 @@ var helper = {
             sourceTableColumn.precision != targetTableColumn.precision ||
             sourceTableColumn.scale != targetTableColumn.scale) {
             changes.datatype = sourceTableColumn.datatype;
+            changes.dataTypeID = sourceTableColumn.dataTypeID;
+            changes.dataTypeCategory = sourceTableColumn.dataTypeCategory;
             changes.precision = sourceTableColumn.precision;
             changes.scale = sourceTableColumn.scale;
         }
@@ -97,35 +106,109 @@ var helper = {
         if (sourceTableColumn.default != targetTableColumn.default)
             changes.default = sourceTableColumn.default;
 
-        if (Object.keys(changes).length > 0)
-            this.__tempScripts.push(sql.generateChangeTableColumnScript(table, column, changes));
+        if (sourceTableColumn.identity != targetTableColumn.identity) {
+            changes.identity = sourceTableColumn.identity;
 
+            if (targetTableColumn.identity == null)
+                changes.isNewIdentity = true;
+            else
+                changes.isNewIdentity = false;
+        }
+
+        if (Object.keys(changes).length > 0) {
+            let rawColumnName = column.substring(1).slice(0, -1);
+
+            //Check if the column is under constrains
+            for (let constraint in targetTableConstraints) {
+                if (this.__droppedConstraints.includes(constraint))
+                    continue;
+
+                let constraintDefinition = targetTableConstraints[constraint].definition;
+                let serachStartingIndex = constraintDefinition.indexOf('(');
+
+                if (constraintDefinition.includes(`${rawColumnName},`, serachStartingIndex) ||
+                    constraintDefinition.includes(`${rawColumnName})`, serachStartingIndex) ||
+                    constraintDefinition.includes(`${column}`, serachStartingIndex)) {
+                    this.__tempScripts.push(sql.generateDropTableConstraintScript(table, constraint));
+                    this.__droppedConstraints.push(constraint);
+                }
+            }
+
+            //Check if the column is part of indexes
+            for (let index in targetTableIndexes) {
+                let indexDefinition = targetTableIndexes[index].definition;
+                let serachStartingIndex = indexDefinition.indexOf('(');
+
+                if (indexDefinition.includes(`${rawColumnName},`, serachStartingIndex) ||
+                    indexDefinition.includes(`${rawColumnName})`, serachStartingIndex) ||
+                    indexDefinition.includes(`${column}`, serachStartingIndex)) {
+                    this.__tempScripts.push(sql.generateDropIndexScript(index))
+                    this.__droppedIndexes.push(index);
+                }
+            }
+
+            //Check if the column is used into view
+            for (let view in this.__targetSchema.views) {
+                this.__targetSchema.views[view].dependencies.forEach(dependency => {
+                    let fullDependencyName = `"${dependency.schemaName}"."${dependency.tableName}"`;
+                    if (fullDependencyName == table && dependency.columnName == column) {
+                        this.__tempScripts.push(sql.generateDropViewScript(index))
+                        this.__droppedViews.push(view);
+                    }
+                });
+            }
+
+            //Check if the column is used into materialized view
+            for (let view in this.__targetSchema.materializedViews) {
+                this.__targetSchema.materializedViews[view].dependencies.forEach(dependency => {
+                    let fullDependencyName = `"${dependency.schemaName}"."${dependency.tableName}"`;
+                    if (fullDependencyName == table && dependency.columnName == column) {
+                        this.__tempScripts.push(sql.generateDropMaterializedViewScript(index))
+                        this.__droppedViews.push(view);
+                    }
+                });
+            }
+
+            this.__tempScripts.push(sql.generateChangeTableColumnScript(table, column, changes));
+        }
     },
     __compareTableConstraints: function(table, sourceTableConstraints, targetTableConstraints) {
         for (let constraint in sourceTableConstraints) { //Get new or changed constraint
             if (targetTableConstraints[constraint]) { //Table constraint exists on both database, then compare column schema
-                if (sourceTableConstraints[constraint] != targetTableConstraints[constraint])
-                    this.__tempScripts.push(sql.generateChangeTableConstraintScript(table, constraint, sourceTableConstraints[constraint]));
+                if (sourceTableConstraints[constraint].definition != targetTableConstraints[constraint].definition) {
+                    if (!this.__droppedConstraints.includes(constraint))
+                        this.__tempScripts.push(sql.generateDropTableConstraintScript(table, constraint));
+                    this.__tempScripts.push(sql.generateAddTableConstraintScript(table, constraint, sourceTableConstraints[constraint]));
+                } else {
+                    if (this.__droppedConstraints.includes(constraint)) //It will recreate a dropped constraints because changes happens on involved columns
+                        this.__tempScripts.push(sql.generateAddTableConstraintScript(table, constraint, sourceTableConstraints[constraint]));
+                }
             } else { //Table constraint not exists on target database, then generate script to add constraint
                 this.__tempScripts.push(sql.generateAddTableConstraintScript(table, constraint, sourceTableConstraints[constraint]));
             }
         }
         for (let constraint in targetTableConstraints) { //Get dropped constraints
-            if (!sourceTableConstraints[constraint]) //Table constraint not exists on source, then generate script to drop constraint
-                this.__tempScripts.push(sql.generateDropTableConstraintScript(table, constraint))
+            if (!sourceTableConstraints[constraint] && !this.__droppedConstraints.includes(constraint)) //Table constraint not exists on source, then generate script to drop constraint
+                this.__tempScripts.push(sql.generateDropTableConstraintScript(table, constraint));
         }
     },
     __compareTableIndexes: function(sourceTableIndexes, targetTableIndexes) {
         for (let index in sourceTableIndexes) { //Get new or changed indexes            
             if (targetTableIndexes[index]) { //Table index exists on both database, then compare index definition
-                if (sourceTableIndexes[index] != targetTableIndexes[index])
-                    this.__tempScripts.push(sql.generateChangeIndexScript(index, sourceTableIndexes[index].definition));
+                if (sourceTableIndexes[index].definition != targetTableIndexes[index].definition) {
+                    if (!this.__droppedIndexes.includes(index))
+                        this.__tempScripts.push(sql.generateDropIndexScript(index));
+                    this.__tempScripts.push(`\n${sourceTableIndexes[index].definition};\n`);
+                } else {
+                    if (this.__droppedIndexes.includes(index)) //It will recreate a dropped index because changes happens on involved columns
+                        this.__tempScripts.push(`\n${sourceTableIndexes[index].definition};\n`);
+                }
             } else { //Table index not exists on target database, then generate script to add index                
                 this.__tempScripts.push(`\n${sourceTableIndexes[index].definition};\n`);
             }
         }
         for (let index in targetTableIndexes) { //Get dropped indexes
-            if (!sourceTableIndexes[index]) //Table index not exists on source, then generate script to drop index
+            if (!sourceTableIndexes[index] && !this.__droppedIndexes.includes(index)) //Table index not exists on source, then generate script to drop index
                 this.__tempScripts.push(sql.generateDropIndexScript(index))
         }
     },
@@ -162,86 +245,96 @@ var helper = {
             }
         }
     },
-    __compareViews: function(sourceViews, targetViews) {
+    __compareViews: function() {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing views');
-        const progressBarStep = 0.1999 / Object.keys(sourceViews).length;
+        const progressBarStep = 0.1999 / Object.keys(this.__sourceSchema.views).length;
 
-        for (let view in sourceViews) { //Get new or changed views
+        for (let view in this.__sourceSchema.views) { //Get new or changed views
             this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing VIEW ${view}`);
             this.__tempScripts = [];
             let actionLabel = '';
 
-            if (targetViews[view]) { //View exists on both database, then compare view schema                 
+            if (this.__targetSchema.views[view]) { //View exists on both database, then compare view schema                 
                 actionLabel = 'ALTER';
 
-                if (sourceViews[view].definition != targetViews[view].definition)
-                    this.__tempScripts.push(sql.generateChangeViewScript(view, sourceViews[view]));
-                else {
-                    this.__compareTablePrivileges(view, sourceViews[view].privileges, targetViews[view].privileges);
-                    if (sourceViews[view].owner != targetViews[view].owner)
-                        this.__tempScripts.push(sql.generateChangeTableOwnerScript(view, sourceViews[view].owner));
+                if (this.__sourceSchema.views[view].definition != this.__targetSchema.views[view].definition) {
+                    if (!this.__droppedViews.includes(view))
+                        this.__tempScripts.push(sql.generateDropViewScript(view));
+                    this.__tempScripts.push(sql.generateCreateViewScript(view, this.__sourceSchema.views[view]));
+                } else {
+                    if (this.__droppedViews.includes(view)) //It will recreate a dropped view because changes happens on involved columns
+                        this.__tempScripts.push(sql.generateCreateViewScript(view, this.__sourceSchema.views[view]));
+
+                    this.__compareTablePrivileges(view, this.__sourceSchema.views[view].privileges, this.__targetSchema.views[view].privileges);
+                    if (this.__sourceSchema.views[view].owner != this.__targetSchema.views[view].owner)
+                        this.__tempScripts.push(sql.generateChangeTableOwnerScript(view, this.__sourceSchema.views[view].owner));
                 }
             } else { //View not exists on target database, then generate the script to create view
                 actionLabel = 'CREATE';
 
-                this.__tempScripts.push(sql.generateCreateViewScript(view, sourceViews[view]));
+                this.__tempScripts.push(sql.generateCreateViewScript(view, this.__sourceSchema.views[view]));
             }
 
             this.__appendScripts(`${actionLabel} VIEW ${view}`);
         }
     },
-    __compareMaterializedViews: function(sourceMaterializedViews, targetMaterializedViews) {
+    __compareMaterializedViews: function() {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing materialized views');
-        const progressBarStep = 0.1999 / Object.keys(sourceMaterializedViews).length;
+        const progressBarStep = 0.1999 / Object.keys(this.__sourceSchema.materializedViews).length;
 
-        for (let view in sourceMaterializedViews) { //Get new or changed materialized views
+        for (let view in this.__sourceSchema.materializedViews) { //Get new or changed materialized views
             this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing MATERIALIZED VIEW ${view}`);
             this.__tempScripts = [];
             let actionLabel = '';
 
-            if (targetMaterializedViews[view]) { //Materialized view exists on both database, then compare materialized view schema     
+            if (this.__targetSchema.materializedViews[view]) { //Materialized view exists on both database, then compare materialized view schema     
                 actionLabel = 'ALTER';
 
-                if (sourceMaterializedViews[view].definition != targetMaterializedViews[view].definition)
-                    this.__tempScripts.push(sql.generateChangeMaterializedViewScript(view, sourceMaterializedViews[view]));
-                else {
-                    this.__compareTableIndexes(sourceMaterializedViews[view].indexes, targetMaterializedViews[view].indexes);
-                    this.__compareTablePrivileges(view, sourceMaterializedViews[view].privileges, targetMaterializedViews[view].privileges);
-                    if (sourceMaterializedViews[view].owner != targetMaterializedViews[view].owner)
-                        this.__tempScripts.push(sql.generateChangeTableOwnerScript(view, sourceMaterializedViews[view].owner));
+                if (this.__sourceSchema.materializedViews[view].definition != this.__targetSchema.materializedViews[view].definition) {
+                    if (!this.__droppedViews.includes(view))
+                        this.__tempScripts.push(sql.generateDropMaterializedViewScript(view));
+                    this.__tempScripts.push(sql.generateCreateMaterializedViewScript(view, this.__sourceSchema.materializedViews[view]));
+                } else {
+                    if (this.__droppedViews.includes(view)) //It will recreate a dropped materialized view because changes happens on involved columns
+                        this.__tempScripts.push(sql.generateCreateMaterializedViewScript(view, this.__sourceSchema.views[view]));
+
+                    this.__compareTableIndexes(this.__sourceSchema.materializedViews[view].indexes, this.__targetSchema.materializedViews[view].indexes);
+                    this.__compareTablePrivileges(view, this.__sourceSchema.materializedViews[view].privileges, this.__targetSchema.materializedViews[view].privileges);
+                    if (this.__sourceSchema.materializedViews[view].owner != this.__targetSchema.materializedViews[view].owner)
+                        this.__tempScripts.push(sql.generateChangeTableOwnerScript(view, this.__sourceSchema.materializedViews[view].owner));
                 }
             } else { //Materialized view not exists on target database, then generate the script to create materialized view
                 actionLabel = 'CREATE';
 
-                this.__tempScripts.push(sql.generateCreateMaterializedViewScript(view, sourceMaterializedViews[view]));
+                this.__tempScripts.push(sql.generateCreateMaterializedViewScript(view, this.__sourceSchema.materializedViews[view]));
             }
 
             this.__appendScripts(`${actionLabel} MATERIALIZED VIEW ${view}`);
         }
     },
-    __compareProcedures: function(sourceProcedures, targetProcedures) {
+    __compareProcedures: function(targetProcedures) {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing functions');
-        const progressBarStep = 0.1999 / Object.keys(sourceProcedures).length;
+        const progressBarStep = 0.1999 / Object.keys(this.__sourceSchema.functions).length;
 
-        for (let procedure in sourceProcedures) { //Get new or changed procedures
+        for (let procedure in this.__sourceSchema.functions) { //Get new or changed procedures
             this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing FUNCTION ${procedure}`);
             this.__tempScripts = [];
             let actionLabel = '';
 
-            if (targetProcedures[procedure]) { //Procedure exists on both database, then compare procedure definition                     
+            if (this.__targetSchema.functions[procedure]) { //Procedure exists on both database, then compare procedure definition                     
                 actionLabel = 'ALTER';
 
-                if (sourceProcedures[procedure].definition != targetProcedures[procedure].definition) {
-                    this.__tempScripts.push(sql.generateChangeProcedureScript(procedure, sourceProcedures[procedure]));
+                if (this.__sourceSchema.functions[procedure].definition != this.__targetSchema.functions[procedure].definition) {
+                    this.__tempScripts.push(sql.generateChangeProcedureScript(procedure, this.__sourceSchema.functions[procedure]));
                 } else {
-                    this.__compareProcedurePrivileges(procedure, sourceProcedures[procedure].argTypes, sourceProcedures[procedure].privileges, targetProcedures[procedure].privileges);
-                    if (sourceProcedures[procedure].owner != targetProcedures[procedure].owner)
-                        this.__tempScripts.push(sql.generateChangeProcedureOwnerScript(procedure, sourceProcedures[procedure].argTypes, sourceViews[view].owner));
+                    this.__compareProcedurePrivileges(procedure, this.__sourceSchema.functions[procedure].argTypes, this.__sourceSchema.functions[procedure].privileges, this.__targetSchema.functions[procedure].privileges);
+                    if (this.__sourceSchema.functions[procedure].owner != this.__targetSchema.functions[procedure].owner)
+                        this.__tempScripts.push(sql.generateChangeProcedureOwnerScript(procedure, this.__sourceSchema.functions[procedure].argTypes, sourceViews[view].owner));
                 }
             } else { //Procedure not exists on target database, then generate the script to create procedure
                 actionLabel = 'CREATE';
 
-                this.__tempScripts.push(sql.generateCreateProcedureScript(procedure, sourceProcedures[procedure]));
+                this.__tempScripts.push(sql.generateCreateProcedureScript(procedure, this.__sourceSchema.functions[procedure]));
             }
 
             this.__appendScripts(`${actionLabel} FUNCTION ${procedure}`);
@@ -264,11 +357,14 @@ var helper = {
     compareDatabaseObjects: function(sourceSchema, targetSchema) {
         this.__updateProgressbar(0.0, 'Comparing database objects ...');
 
-        this.__compareSchemas(sourceSchema.schemas, targetSchema.schemas);
-        this.__compareTables(sourceSchema.tables, targetSchema.tables);
-        this.__compareViews(sourceSchema.views, targetSchema.views);
-        this.__compareMaterializedViews(sourceSchema.materializedViews, targetSchema.materializedViews);
-        this.__compareProcedures(sourceSchema.functions, targetSchema.functions);
+        this.__sourceSchema = sourceSchema;
+        this.__targetSchema = targetSchema;
+
+        this.__compareSchemas();
+        this.__compareTables();
+        this.__compareViews();
+        this.__compareMaterializedViews();
+        this.__compareProcedures();
 
         this.__updateProgressbar(1.0, 'Database objects compared!');
 

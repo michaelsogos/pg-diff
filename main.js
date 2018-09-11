@@ -8,7 +8,7 @@ const path = require('path');
 const pjson = require('./package.json');
 const schema = require('./src/retrieveSchema');
 const compareSchema = require('./src/compareSchema');
-const data = require('./src/retrieveData');
+const data = require('./src/retrieveRecords');
 const compareRecords = require('./src/compareRecords');
 const { Client } = require('pg');
 const log = console.log;
@@ -16,14 +16,14 @@ const log = console.log;
 global.configName = '';
 global.scriptName = '';
 global.config = null;
+global.replayMigration = false;
 
 __printIntro();
-__readArguments();
-__loadConfig();
-__printOptions();
-__initDbConnections();
-__run();
-
+__readArguments().catch((err) => {
+    __handleError(err);
+    process.exitCode = -1;
+    process.exit();
+});
 
 function __printHelp() {
     log();
@@ -32,12 +32,23 @@ function __printHelp() {
     log(chalk.magenta("===   pg-diff-cli   HELP   ==="));
     log(chalk.magenta("=============================="));
     log();
-    log(chalk.gray('OPTION     \t\tDESCRIPTION'));
-    log(chalk.green('-h, --help\t\t') + chalk.blue('To show this help.'));
+    log(chalk.gray('OPTION                \t\tDESCRIPTION'));
+    log(chalk.green('-h,  --help           \t\t') + chalk.blue('To show this help.'));
+    log(chalk.green('-c,  --compare        \t\t') + chalk.blue('To run compare and generate a patch file.'));
+    log(chalk.green('-m,  --migrate        \t\t') + chalk.blue('To run migration applying all missing patch files.'));
+    log(chalk.green('-mu, --migrate-upto   \t\t') + chalk.blue('To run migration applying all patch files till the specified patch file.'));
+    log(chalk.green('-mr, --migrate-replay \t\t') + chalk.blue('To run migration applying all missing or failed or stuck patch files.'));
     log();
     log();
-    log(chalk.gray("USAGE:   ") + chalk.yellow("pg-diff ") + chalk.cyan("{configuration name | or valid option} {script name}"));
-    log(chalk.gray("EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.cyan("development my-script"));
+    log(chalk.gray("TO COMPARE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("configuration-name script-name"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("development my-script"));
+    log();
+    log(chalk.gray("TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("[-m | -mr] ") + chalk.cyan("configuration-name"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-m ") + chalk.cyan("development"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mr ") + chalk.cyan("development"));
+    log();
+    log(chalk.gray("TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("configuration-name patch-file-name"));
+    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("development 20182808103040999_my-script.sql"));
     log();
     log();
 }
@@ -56,15 +67,15 @@ function __printIntro() {
 function __printOptions() {
     log();
     log(chalk.gray('CONFIGURED OPTIONS'))
-    log(chalk.yellow("    Script Author: ") + chalk.green(global.config.options.author));
-    log(chalk.yellow(" Output Directory: ") + chalk.green(path.resolve(process.cwd(), global.config.options.outputDirectory)));
-    log(chalk.yellow("Schema Namespaces: ") + chalk.green(global.config.options.schemaNamespace));
-    log(chalk.yellow("Idempotent Script: ") + chalk.green(global.config.options.idempotent ? 'ENABLED' : 'DISABLED'));
-    log(chalk.yellow("     Data Compare: ") + chalk.green(global.config.options.dataCompare.enable ? 'ENABLED' : 'DISABLED'));
+    log(chalk.yellow("         Script Author: ") + chalk.green(global.config.options.author));
+    log(chalk.yellow("      Output Directory: ") + chalk.green(path.resolve(process.cwd(), global.config.options.outputDirectory)));
+    log(chalk.yellow("     Schema Namespaces: ") + chalk.green(global.config.options.schemaCompare.namespaces));
+    log(chalk.yellow("     Idempotent Script: ") + chalk.green(global.config.options.schemaCompare.idempotentScript ? 'ENABLED' : 'DISABLED'));
+    log(chalk.yellow("          Data Compare: ") + chalk.green(global.config.options.dataCompare.enable ? 'ENABLED' : 'DISABLED'));
     log();
 }
 
-function __readArguments() {
+async function __readArguments() {
     var args = process.argv.slice(2);
     if (args.length <= 0) {
         log(chalk.red('Missing arguments!'));
@@ -72,17 +83,58 @@ function __readArguments() {
         process.exit();
     }
 
-    if (args.length == 1)
-        switch (args[0]) {
-            case '-h':
-            case '--help':
+    switch (args[0]) {
+        case '-h':
+        case '--help':
+            {
                 __printHelp();
                 process.exit();
-        }
+            }
+        case '-c':
+        case '--compare':
+            {
+                if (args.length != 3) {
+                    log(chalk.red('Missing arguments!'));
+                    __printHelp();
+                    process.exit();
+                }
+                global.configName = args[1];
+                global.scriptName = args[2];
+                __loadConfig();
+                __validateCompareConfig();
+                __printOptions();
+                await __initDbConnections();
+                await __runComparison();
+            }
+            break;
+        case '-m':
+        case '--migrate':
+        case '-mr':
+        case '--migrate-replay':
+            {
+                if (args.length != 2) {
+                    log(chalk.red('Missing arguments!'));
+                    __printHelp();
+                    process.exit();
+                }
 
-    if (args.length == 2) {
-        global.configName = args[0];
-        global.scriptName = args[1];
+                if (args[0] == '-mr' || args[0] == '--migrate-replay')
+                    global.replayMigration = true;
+
+                global.configName = args[1];
+                __loadConfig();
+                __validateMigrationConfig();
+                __printOptions();
+                await __initDbConnections();
+                await __runMigration();
+            }
+            break;
+        default:
+            {
+                log(chalk.red('Missing arguments!'));
+                __printHelp();
+                process.exit();
+            }
     }
 }
 
@@ -97,21 +149,6 @@ function __loadConfig() {
         if (!global.config.options)
             throw new Error('The configuration section "options" must exists !');
 
-        if (!global.config.options.outputDirectory)
-            throw new Error('The configuration section "options" must contains property "outputDirectory (string)" !');
-
-        if (!global.config.options.schemaNamespace)
-            throw new Error('The configuration section "options" must contains property "schemaNamespace (array of strings)" !');
-
-        if (!global.config.options.hasOwnProperty('idempotent'))
-            throw new Error('The configuration section "options" must contains property "idempotent (boolean)" !');
-
-        if (!global.config.options.dataCompare)
-            throw new Error('The configuration section "options" must contains property "dataCompare (object)" !');
-
-        if (!global.config.options.dataCompare.hasOwnProperty('enable'))
-            throw new Error('The configuration section "options.dataCompare" must contains property "enable (boolean)" !');
-
         if (!global.config.source)
             throw new Error('The configuration doesn\'t contains the section "source (object)" !');
 
@@ -125,7 +162,53 @@ function __loadConfig() {
     }
 }
 
-function __initDbConnections() {
+function __validateCompareConfig() {
+    try {
+        if (!global.config.options.outputDirectory)
+            throw new Error('The configuration section "options" must contains property "outputDirectory (string)" !');
+
+        if (!global.config.options.schemaCompare)
+            throw new Error('The configuration section "options" must contains property "schemaCompare (object)" !');
+
+        if (!global.config.options.schemaCompare.hasOwnProperty("namespaces"))
+            throw new Error('The configuration section "options.schemaCompare" must contains property "namespaces (array of strings)" !');
+
+        if (!global.config.options.schemaCompare.hasOwnProperty('idempotentScript'))
+            throw new Error('The configuration section "options.schemaCompare" must contains property "idempotentScript (boolean)" !');
+
+        if (!global.config.options.dataCompare)
+            throw new Error('The configuration section "options" must contains property "dataCompare (object)" !');
+
+        if (!global.config.options.dataCompare.hasOwnProperty('enable'))
+            throw new Error('The configuration section "options.dataCompare" must contains property "enable (boolean)" !');
+
+    } catch (e) {
+        __handleError(e);
+        process.exitCode = -1;
+        process.exit();
+    }
+}
+
+function __validateMigrationConfig() {
+    try {
+
+        if (!global.config.options.migration)
+            throw new Error('The configuration section "options" must contains property "migration (object)" !');
+
+        if (!global.config.options.migration.hasOwnProperty("tableSchema"))
+            throw new Error('The configuration section "options.migration" must contains property "tableSchema (string)" !');
+
+        if (!global.config.options.migration.hasOwnProperty('tableName'))
+            throw new Error('The configuration section "options.migration" must contains property "tableName (string)" !');
+
+    } catch (e) {
+        __handleError(e);
+        process.exitCode = -1;
+        process.exit();
+    }
+}
+
+async function __initDbConnections() {
     var spinner = new Spinner(chalk.blue('Connecting to databases ...'), ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
     spinner.start();
 
@@ -135,8 +218,9 @@ function __initDbConnections() {
         database: global.config.source.database,
         password: global.config.source.password,
         port: global.config.source.port,
-    })
-    global.sourceClient.connect();
+    });
+
+    await global.sourceClient.connect();
     log(chalk.whiteBright(`Connected to [${global.config.source.host}:${global.config.source.port}/${global.config.source.database}] `) + chalk.green('✓'));
 
     global.targetClient = new Client({
@@ -146,70 +230,64 @@ function __initDbConnections() {
         password: global.config.target.password,
         port: global.config.target.port,
     });
-    global.targetClient.connect();
+
+    await global.targetClient.connect();
     log(chalk.whiteBright(`Connected to [${global.config.target.host}:${global.config.target.port}/${global.config.target.database}] `) + chalk.green('✓'));
 
     spinner.stop();
 }
 
-async function __run() {
-    try {
-        log();
-        log(chalk.yellow("Collect SOURCE database objects"));
-        let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaNamespace);
+async function __runComparison() {
+    log();
+    log(chalk.yellow("Collect SOURCE database objects"));
+    let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaCompare.namespaces);
+
+    log();
+    log();
+    log(chalk.yellow("Collect TARGET database objects"));
+    let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaCompare.namespaces);
+
+    log();
+    log();
+    log(chalk.yellow("Compare SOURCE with TARGET database objects"));
+    let scripts = compareSchema.compareDatabaseObjects(sourceSchema, targetSchema);
+
+    //console.dir(scripts, { depth: null });
+
+    if (global.config.options.dataCompare.enable) {
+        global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
 
         log();
         log();
-        log(chalk.yellow("Collect TARGET database objects"));
-        let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaNamespace);
+        log(chalk.yellow("Collect SOURCE tables records"));
+        let sourceTablesRecords = await data.collectTablesRecords(sourceClient, global.config.options.dataCompare.tables);
 
         log();
         log();
-        log(chalk.yellow("Compare SOURCE with TARGET database objects"));
-        let scripts = compareSchema.compareDatabaseObjects(sourceSchema, targetSchema);
-
-        //console.dir(scripts, { depth: null });
-
-        if (global.config.options.dataCompare.enable) {
-            global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
-
-            log();
-            log();
-            log(chalk.yellow("Collect SOURCE tables records"));
-            let sourceTablesRecords = await data.collectTablesRecords(sourceClient, global.config.options.dataCompare.tables);
-
-            log();
-            log();
-            log(chalk.yellow("Collect TARGET tables records"));
-            let targetTablesRecords = await data.collectTablesRecords(targetClient, global.config.options.dataCompare.tables);
-
-            log();
-            log();
-            log(chalk.yellow("Compare SOURCE with TARGET database table records"));
-            scripts = scripts.concat(compareRecords.compareTablesRecords(global.config.options.dataCompare.tables, sourceTablesRecords, targetTablesRecords));
-        } else {
-            log();
-            log();
-            log(chalk.yellow("Data compare not enabled!"));
-        }
-
-        let scriptFilePath = await __saveSqlScript(scripts);
+        log(chalk.yellow("Collect TARGET tables records"));
+        let targetTablesRecords = await data.collectTablesRecords(targetClient, global.config.options.dataCompare.tables);
 
         log();
         log();
-        log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
-
-        process.exit();
-
-    } catch (e) {
-        __handleError(e);
-
-        process.exitCode = -1;
-        process.exit();
+        log(chalk.yellow("Compare SOURCE with TARGET database table records"));
+        scripts = scripts.concat(compareRecords.compareTablesRecords(global.config.options.dataCompare.tables, sourceTablesRecords, targetTablesRecords));
+    } else {
+        log();
+        log();
+        log(chalk.yellow("Data compare not enabled!"));
     }
+
+    let scriptFilePath = await __saveSqlScript(scripts);
+
+    log();
+    log();
+    log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
+
+    process.exit();
 }
 
 function __handleError(e) {
+    log();
     log(chalk.red(e));
     log(chalk.magenta(e.stack));
 
@@ -245,4 +323,12 @@ async function __saveSqlScript(scriptLines) {
 
         file.end();
     });
+}
+
+async function __runMigration() {
+    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+    const migratePatch = require('./src/migratePatch');
+    await migratePatch.migrate();
+
+    process.exit();
 }
