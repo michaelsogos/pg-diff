@@ -13,7 +13,7 @@ const query = {
         return `SELECT relhasoids FROM pg_class WHERE oid = '${tableName}'::regclass`
     },
     "getTableColumns": function(tableName) {
-        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc,
+        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc, a.attidentity,
                 CASE 
                     WHEN t.typname = 'numeric' AND a.atttypmod > 0 THEN (a.atttypmod-4) >> 16
                     WHEN (t.typname = 'bpchar' or t.typname = 'varchar') AND a.atttypmod > 0 THEN a.atttypmod-4
@@ -89,7 +89,7 @@ const query = {
                 a.attname AS columnname
                 FROM pg_rewrite AS r
                 INNER JOIN pg_depend AS d ON r.oid=d.objid
-                INNER JOIN pg_attribute a ON a.attnum = d.refobjsubid AND a.attrelid = d.refobjid
+                INNER JOIN pg_attribute a ON a.attnum = d.refobjsubid AND a.attrelid = d.refobjid AND a.attisdropped = false
                 INNER JOIN pg_class c ON c.oid = d.refobjid
                 INNER JOIN pg_namespace n ON n.oid = c.relnamespace                
                 WHERE r.ev_class='"${schemaName}"."${viewName}"'::regclass::oid AND d.refobjid <> '"${schemaName}"."${viewName}"'::regclass::oid`
@@ -120,7 +120,6 @@ var helper = {
     collectSchemaObjects: async function(client, schemas) {
         return new Promise(async(resolve, reject) => {
             try {
-
                 helper.__updateProgressbar(0.0, 'Collecting database objects ...');
 
                 var schema = {
@@ -189,9 +188,27 @@ var helper = {
             const columns = await client.query(query.getTableColumns(fullTableName))
             columns.rows.forEach(column => {
                 let columnName = `"${column.attname}"`;
-                let isAutoIncrement = (column.adsrc && column.adsrc.startsWith('nextval') && column.adsrc.includes('_seq')) || false;
-                let defaultValue = isAutoIncrement ? '' : column.adsrc
-                let dataType = isAutoIncrement ? 'serial' : column.typname
+                let columnIdentity = null;
+                let defaultValue = column.adsrc;
+                let dataType = column.typname;
+
+                switch (column.attidentity) {
+                    case 'a':
+                        columnIdentity = 'ALWAYS';
+                        defaultValue = '';
+                        break;
+                    case 'd':
+                        columnIdentity = 'BY DEFAULT';
+                        defaultValue = '';
+                        break;
+                    default:
+                        if (column.adsrc && column.adsrc.startsWith('nextval') && column.adsrc.includes('_seq')) {
+                            defaultValue = '';
+                            dataType = 'serial';
+                        };
+                        break;
+                }
+
                 result[fullTableName].columns[columnName] = {
                     nullable: !column.attnotnull,
                     datatype: dataType,
@@ -199,7 +216,8 @@ var helper = {
                     dataTypeCategory: column.typcategory,
                     default: defaultValue,
                     precision: column.precision,
-                    scale: column.scale
+                    scale: column.scale,
+                    identity: columnIdentity
                 }
             });
 

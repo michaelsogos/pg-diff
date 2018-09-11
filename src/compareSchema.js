@@ -106,6 +106,15 @@ var helper = {
         if (sourceTableColumn.default != targetTableColumn.default)
             changes.default = sourceTableColumn.default;
 
+        if (sourceTableColumn.identity != targetTableColumn.identity) {
+            changes.identity = sourceTableColumn.identity;
+
+            if (targetTableColumn.identity == null)
+                changes.isNewIdentity = true;
+            else
+                changes.isNewIdentity = false;
+        }
+
         if (Object.keys(changes).length > 0) {
             let rawColumnName = column.substring(1).slice(0, -1);
 

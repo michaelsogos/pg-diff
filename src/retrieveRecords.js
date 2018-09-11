@@ -23,12 +23,14 @@ var helper = {
 
                     tableRecords[table] = {
                         records: [],
-                        exists: false
+                        exists: false,
+                        sequences: []
                     };
 
                     if (await helper.__checkIfTableExists(client, table, tables[table].schema)) {
                         tableRecords[table].records = await helper.__collectTableRecords(client, table, tables[table]);
                         tableRecords[table].exists = true;
+                        tableRecords[table].sequences = await helper.__collectTableSequences(client, table, tables[table].schema);
                     }
                 }
 
@@ -54,6 +56,25 @@ var helper = {
         result.rows = response.rows;
 
         return result;
+    },
+    __collectTableSequences: async function(client, table, schema) {
+        let response = await client.query(`
+            SELECT * FROM (
+                SELECT 
+                    pg_get_serial_sequence(a.attrelid::regclass::name, a.attname) AS seqname,
+                    a.attname,
+                    CASE 
+                    	WHEN COALESCE(a.attidentity,'') = '' THEN 'SERIAL'
+                    	WHEN a.attidentity = 'a' THEN 'ALWAYS'
+                    	WHEN a.attidentity = 'd' THEN 'BY DEFAULT'
+                    END AS identitytype
+                FROM pg_attribute a
+                WHERE a.attrelid = '"${schema||'public'}"."${table}"'::regclass
+                AND a.attnum > 0
+                AND a.attisdropped = false
+            ) T WHERE T.seqname IS NOT NULL`);
+
+        return response.rows;
     }
 }
 

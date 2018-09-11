@@ -2,7 +2,8 @@ const hints = {
     addColumnNotNullableWithoutDefaultValue: " --WARN: Add a new column not nullable without a default value can occure in a sql error during execution!",
     changeColumnDataType: " --WARN: Change column data type can occure in a casting error, the suggested casting expression is the default one and may not fit your needs!",
     dropColumn: " --WARN: Drop column can occure in data loss!",
-    potentialRoleMissing: " --WARN: Grant\\Revoke privileges to a role can occure in a sql error during execution if role is missing to the target database!"
+    potentialRoleMissing: " --WARN: Grant\\Revoke privileges to a role can occure in a sql error during execution if role is missing to the target database!",
+    identityColumnDetected: " --WARN: Identity column has been detected, an error can occure because constraints violation!"
 }
 
 var helper = {
@@ -20,9 +21,13 @@ var helper = {
         if (columnSchema.default)
             defaultValue = `DEFAULT ${columnSchema.default}`;
 
+        let identityValue = '';
+        if (columnSchema.identity)
+            identityValue = `GENERATED ${columnSchema.identity} AS IDENTITY`;
+
         let dataType = this.__generateColumnDataTypeDefinition(columnSchema);
 
-        return `${column} ${dataType} ${columnSchema.nullable?'NULL':'NOT NULL'} ${defaultValue}`
+        return `${column} ${dataType} ${columnSchema.nullable?'NULL':'NOT NULL'} ${defaultValue} ${identityValue}`;
     },
     __generateTableGrantsDefinition: function(table, role, privileges) {
         let definitions = [];
@@ -124,6 +129,16 @@ var helper = {
         if (changes.hasOwnProperty('default'))
             definitions.push(`ALTER COLUMN ${column} ${changes.default?'SET':'DROP'} DEFAULT ${changes.default||''}`);
 
+
+        if (changes.hasOwnProperty('identity') && changes.hasOwnProperty('isNewIdentity')) {
+            let identityDefinition = '';
+            if (changes.identity) { //truly values
+                identityDefinition = `${changes.isNewIdentity?'ADD':'SET'} GENERATED ${changes.identity} ${changes.isNewIdentity?'AS IDENTITY':''}`;
+            } else { //falsy values
+                identityDefinition = `DROP IDENTITY ${global.config.options.schemaCompare.idempotentScript?'IF EXISTS':''}`;
+            }
+            definitions.push(`ALTER COLUMN ${column} ${identityDefinition}`);
+        }
 
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table}\n\t${definitions.join(',\n\t')};\n`
 
@@ -293,7 +308,7 @@ var helper = {
         let script = `\nUPDATE ${table} SET ${updates.join(', ')} WHERE ${conditions.join(' AND ')};\n`;
         return script;
     },
-    generateInsertTableRecordScript: function(table, record, fields) {
+    generateInsertTableRecordScript: function(table, record, fields, isIdentityUserValuesAllowed) {
         let fieldNames = [];
         let fieldValues = [];
         for (let field in record) {
@@ -301,7 +316,9 @@ var helper = {
             fieldValues.push(this.__generateSqlFormattedValue(field, fields, record[field]));
         }
 
-        let script = `\nINSERT INTO ${table} (${fieldNames.join(', ')}) VALUES (${fieldValues.join(', ')});\n`;
+        let script = `\nINSERT INTO ${table} (${fieldNames.join(', ')}) ${isIdentityUserValuesAllowed?'': 'OVERRIDING SYSTEM VALUE'} VALUES (${fieldValues.join(', ')});\n`;
+        if (!isIdentityUserValuesAllowed)
+            script = `\n${hints.identityColumnDetected}` + script;
         return script;
     },
     generateDeleteTableRecordScript: function(table, fields, keyFieldsMap) {
@@ -367,6 +384,10 @@ var helper = {
             throw new Error(`Impossible to generate conflict definition for table ${table} record to merge!`);
 
         let script = `\nINSERT INTO ${table} (${fieldNames.join(', ')}) VALUES (${fieldValues.join(', ')})\nON CONFLICT ${conflictDefinition}\nDO UPDATE SET ${updates.join(', ')}`;
+        return script;
+    },
+    generateSetSequenceValueScript(tableName, sequence) {
+        let script = `\nSELECT setval('${sequence.seqname}', max("${sequence.attname}"), true) FROM ${tableName};\n`;
         return script;
     }
 }

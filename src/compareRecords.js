@@ -34,7 +34,12 @@ var helper = {
             } else {
                 if (!targetTablesRecords[table] || !targetTablesRecords[table].exists)
                     this.__tempScripts.push(`\n--ERROR: Table ${tableName} not found on TARGET database for comparison!\n`);
-                this.__compareTableRecords(tableName, options[table].keyFields, sourceTablesRecords[table], targetTablesRecords[table]);
+
+                //Check if at least one sequence is for an ALWAYS IDENTITY in case the OVERRIDING SYSTEM VALUE must be issued
+                let isIdentityUserValuesAllowed = this.__checkIdentityAllowUserValues(targetTablesRecords[table].sequences);
+                this.__compareTableRecords(tableName, options[table].keyFields, sourceTablesRecords[table], targetTablesRecords[table], isIdentityUserValuesAllowed);
+                //Reset sequences to avoid PKEY or UNIQUE CONSTRAINTS conflicts
+                this.__rebaseSequences(tableName, sourceTablesRecords[table].sequences);
             }
 
             this.__appendScripts(`SYNCHRONIZE TABLE ${tableName} RECORDS`);
@@ -45,7 +50,15 @@ var helper = {
 
         return this.__finalScripts;
     },
-    __compareTableRecords: function(table, keyFields, sourceTableRecords, targetTableRecords) {
+    __rebaseSequences: function(tableName, tableSequences) {
+        tableSequences.forEach(sequence => {
+            this.__tempScripts.push(sql.generateSetSequenceValueScript(tableName, sequence));
+        });
+    },
+    __checkIdentityAllowUserValues: function(tableSequences) {
+        return !tableSequences.some((sequence) => sequence.identitytype === 'ALWAYS');
+    },
+    __compareTableRecords: function(table, keyFields, sourceTableRecords, targetTableRecords, isIdentityUserValuesAllowed) {
         let ignoredRowHash = [];
 
         sourceTableRecords.records.rows.forEach((record, index) => {
@@ -79,7 +92,7 @@ var helper = {
             ignoredRowHash.push(record.rowHash);
             if (targetRecord.length <= 0) { //A record with same KEY FIELDS not exists, then create a new record
                 delete record.rowHash;
-                this.__tempScripts.push(sql.generateInsertTableRecordScript(table, record, sourceTableRecords.records.fields));
+                this.__tempScripts.push(sql.generateInsertTableRecordScript(table, record, sourceTableRecords.records.fields, isIdentityUserValuesAllowed));
             } else { //A record with same KEY FIELDS VALUES has been found, then update not matching fieds only
                 this.__compareTableRecordFields(table, keyFieldsMap, sourceTableRecords.records.fields, record, targetRecord[0])
             }

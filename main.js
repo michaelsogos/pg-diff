@@ -8,7 +8,7 @@ const path = require('path');
 const pjson = require('./package.json');
 const schema = require('./src/retrieveSchema');
 const compareSchema = require('./src/compareSchema');
-const data = require('./src/retrieveData');
+const data = require('./src/retrieveRecords');
 const compareRecords = require('./src/compareRecords');
 const { Client } = require('pg');
 const log = console.log;
@@ -19,7 +19,11 @@ global.config = null;
 global.replayMigration = false;
 
 __printIntro();
-__readArguments();
+__readArguments().catch((err) => {
+    __handleError(err);
+    process.exitCode = -1;
+    process.exit();
+});
 
 function __printHelp() {
     log();
@@ -71,7 +75,7 @@ function __printOptions() {
     log();
 }
 
-function __readArguments() {
+async function __readArguments() {
     var args = process.argv.slice(2);
     if (args.length <= 0) {
         log(chalk.red('Missing arguments!'));
@@ -99,8 +103,8 @@ function __readArguments() {
                 __loadConfig();
                 __validateCompareConfig();
                 __printOptions();
-                __initDbConnections();
-                __runComparison();
+                await __initDbConnections();
+                await __runComparison();
             }
             break;
         case '-m':
@@ -121,8 +125,8 @@ function __readArguments() {
                 __loadConfig();
                 __validateMigrationConfig();
                 __printOptions();
-                __initDbConnections();
-                __runMigration();
+                await __initDbConnections();
+                await __runMigration();
             }
             break;
         default:
@@ -204,7 +208,7 @@ function __validateMigrationConfig() {
     }
 }
 
-function __initDbConnections() {
+async function __initDbConnections() {
     var spinner = new Spinner(chalk.blue('Connecting to databases ...'), ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
     spinner.start();
 
@@ -214,8 +218,9 @@ function __initDbConnections() {
         database: global.config.source.database,
         password: global.config.source.password,
         port: global.config.source.port,
-    })
-    global.sourceClient.connect();
+    });
+
+    await global.sourceClient.connect();
     log(chalk.whiteBright(`Connected to [${global.config.source.host}:${global.config.source.port}/${global.config.source.database}] `) + chalk.green('✓'));
 
     global.targetClient = new Client({
@@ -225,70 +230,64 @@ function __initDbConnections() {
         password: global.config.target.password,
         port: global.config.target.port,
     });
-    global.targetClient.connect();
+
+    await global.targetClient.connect();
     log(chalk.whiteBright(`Connected to [${global.config.target.host}:${global.config.target.port}/${global.config.target.database}] `) + chalk.green('✓'));
 
     spinner.stop();
 }
 
 async function __runComparison() {
-    try {
-        log();
-        log(chalk.yellow("Collect SOURCE database objects"));
-        let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaCompare.namespaces);
+    log();
+    log(chalk.yellow("Collect SOURCE database objects"));
+    let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaCompare.namespaces);
+
+    log();
+    log();
+    log(chalk.yellow("Collect TARGET database objects"));
+    let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaCompare.namespaces);
+
+    log();
+    log();
+    log(chalk.yellow("Compare SOURCE with TARGET database objects"));
+    let scripts = compareSchema.compareDatabaseObjects(sourceSchema, targetSchema);
+
+    //console.dir(scripts, { depth: null });
+
+    if (global.config.options.dataCompare.enable) {
+        global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
 
         log();
         log();
-        log(chalk.yellow("Collect TARGET database objects"));
-        let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaCompare.namespaces);
+        log(chalk.yellow("Collect SOURCE tables records"));
+        let sourceTablesRecords = await data.collectTablesRecords(sourceClient, global.config.options.dataCompare.tables);
 
         log();
         log();
-        log(chalk.yellow("Compare SOURCE with TARGET database objects"));
-        let scripts = compareSchema.compareDatabaseObjects(sourceSchema, targetSchema);
-
-        //console.dir(scripts, { depth: null });
-
-        if (global.config.options.dataCompare.enable) {
-            global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
-
-            log();
-            log();
-            log(chalk.yellow("Collect SOURCE tables records"));
-            let sourceTablesRecords = await data.collectTablesRecords(sourceClient, global.config.options.dataCompare.tables);
-
-            log();
-            log();
-            log(chalk.yellow("Collect TARGET tables records"));
-            let targetTablesRecords = await data.collectTablesRecords(targetClient, global.config.options.dataCompare.tables);
-
-            log();
-            log();
-            log(chalk.yellow("Compare SOURCE with TARGET database table records"));
-            scripts = scripts.concat(compareRecords.compareTablesRecords(global.config.options.dataCompare.tables, sourceTablesRecords, targetTablesRecords));
-        } else {
-            log();
-            log();
-            log(chalk.yellow("Data compare not enabled!"));
-        }
-
-        let scriptFilePath = await __saveSqlScript(scripts);
+        log(chalk.yellow("Collect TARGET tables records"));
+        let targetTablesRecords = await data.collectTablesRecords(targetClient, global.config.options.dataCompare.tables);
 
         log();
         log();
-        log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
-
-        process.exit();
-
-    } catch (e) {
-        __handleError(e);
-
-        process.exitCode = -1;
-        process.exit();
+        log(chalk.yellow("Compare SOURCE with TARGET database table records"));
+        scripts = scripts.concat(compareRecords.compareTablesRecords(global.config.options.dataCompare.tables, sourceTablesRecords, targetTablesRecords));
+    } else {
+        log();
+        log();
+        log(chalk.yellow("Data compare not enabled!"));
     }
+
+    let scriptFilePath = await __saveSqlScript(scripts);
+
+    log();
+    log();
+    log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
+
+    process.exit();
 }
 
 function __handleError(e) {
+    log();
     log(chalk.red(e));
     log(chalk.magenta(e.stack));
 
@@ -327,16 +326,9 @@ async function __saveSqlScript(scriptLines) {
 }
 
 async function __runMigration() {
-    try {
-        global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
-        const migratePatch = require('./src/migratePatch');
-        await migratePatch.migrate();
+    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+    const migratePatch = require('./src/migratePatch');
+    await migratePatch.migrate();
 
-        process.exit();
-    } catch (e) {
-        __handleError(e);
-
-        process.exitCode = -1;
-        process.exit();
-    }
+    process.exit();
 }
