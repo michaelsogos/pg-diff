@@ -11,7 +11,10 @@ const compareSchema = require('./src/compareSchema');
 const data = require('./src/retrieveRecords');
 const compareRecords = require('./src/compareRecords');
 const { Client } = require('pg');
+const pgTypes = require('pg').types;
 const log = console.log;
+
+pgTypes.setTypeParser(1114, (value) => new Date(Date.parse(`${value}+0000`)));
 
 global.configName = '';
 global.scriptName = '';

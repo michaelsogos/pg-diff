@@ -1,5 +1,9 @@
 # Changelog
 
+#### ver 1.1.1
+- Fixed datatime issue between PGSQL timestamp data type and NodeJS Date object
+- Fixed an issue when rebasing sequences
+
 #### ver 1.1.0
 
 - Fixed a bug comparing data between tables
