@@ -225,7 +225,7 @@ var helper = {
             "status": status,
             "last_message": message,
             "script": script.replace(/'/g, "''"),
-            "applied_on": new Date().toUTCString()
+            "applied_on": new Date()
         }
 
         let filterConditions = {

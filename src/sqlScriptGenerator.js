@@ -344,8 +344,9 @@ var helper = {
         }).typcategory;
 
         switch (dataTypeCategory) {
+            case 'D': //DATE TIME    
+                return `'${value.toISOString()}'`;
             case 'A': //ARRAY
-            case 'D': //DATE TIME
             case 'R': //RANGE
             case 'S': //STRING
             case 'U': //BIT
@@ -387,7 +388,7 @@ var helper = {
         return script;
     },
     generateSetSequenceValueScript(tableName, sequence) {
-        let script = `\nSELECT setval('${sequence.seqname}', max("${sequence.attname}"), true) FROM ${tableName};\n`;
+        let script = `\nSELECT setval(pg_get_serial_sequence('${tableName}', '${sequence.attname}'), max("${sequence.attname}"), true) FROM ${tableName};\n`;
         return script;
     }
 }
