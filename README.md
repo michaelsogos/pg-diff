@@ -63,10 +63,12 @@ Create a config file in your project folder like the below example:
             "password": "put-password-here"
         },
         "options": { //This section is mandatory
-            "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
-            "schemaNamespace": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared
             "author": "your-name-or-nickname-or-anything-else", //This option is mandatory but the string can be empty
-            "idempotent": true, //When true will create safe pgsql code in order to not throw exceptions in case of re-execution of the script, when false will create standard sql code but in case for any reason the script fail during execution it could be hard to rollback changes and re-execution probably will throw exceptions
+            "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
+            "schemaNamespace": {
+                "namespaces": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared
+                "idempotentScript": true //When true will create safe pgsql code in order to not throw exceptions in case of re-execution of the script, when false will create standard sql code but in case for any reason the script fail during execution it could be hard to rollback changes and re-execution probably will throw exceptions
+            },
             "dataCompare": { //This option is mandatory
                 "enable": true, //False to disable record comparing
                 "tables": { //This option is mandatory in case the above "enable" is true
@@ -78,6 +80,10 @@ Create a config file in your project folder like the below example:
                         "keyFields": ["list-of-key-fields-name"]
                     }
                 }
+            },
+            "migration": { //This section is mandatory only if you want to use our migration strategy
+                "tableSchema": "public", //This is the schema name where to create a "migrations history" table
+                "tableName": "migrations" //This is the table name where to save "migrations history"
             }            
         }
     }
@@ -86,7 +92,7 @@ Create a config file in your project folder like the below example:
 
 Run the tool typing on a shell:  
 ```bash
-pg-diff development initial-script
+pg-diff -c development initial-script
 ```
 It will generate a file like: **20180828103045123_initial-script.sql** under the **{outputDirectory}** folder.  
 
@@ -94,6 +100,54 @@ If you need help types:
 ```bash
 pg-diff -h
 ```
+
+### Command line options
+Since version ```1.1.0``` a lot of improvements and new features has been added to this library; following a complete list and example:
+
+##### Creating a patch
+Call library with options **-c** passing the **configuration name** and a **name for patch**.  
+It will create the sql patch file under configured output folder.  
+```bash
+pg-diff -c development my-first-patch
+```
+
+##### Migrating a patch
+Call library with options **-m** ( or **-mr** to re-execute ignoring latest execution status) passing the **configuration name**, automatically all not yet applied script will be executed.  
+Migration strategy in any case will **ignore any succesfully script executed, even with -mr option**.  
+```bash
+pg-diff -m development
+```
+
+##### Registering patch without execute it
+Call library with option **-s** passing the **configuration name** and the **patch file name**.  
+It will register the patch in status DONE on migration history table.  
+```bash
+pg-diff -s development 20180923221043142_my-patch.sql
+```
+
+### Team workflow
+Of course this library can be used by your-self only, but it has been created with TEAM WORK needs in mind.  
+The suggested workflow is:
+1. Create two local database  
+    a. first db where make changes on both schema and data; suppose that db name is **appdb_dev**  
+    b. second db which is the application database where to apply our created patches; suppose that db name is **appdb**  
+2. Change the config file to having two configuration  
+    a. the first one is used to compare and migrate from **SOURCE**, in our case it is **appdb_dev**, to **TARGET**, in our case it is **appdb**  
+    b. the second one is used to just migrate and keep updated our **TARGET** db, that is the opposite from above configuration, in our case it is **appdb_dev**  
+3. Make changes on **appdb_dev** and run comparison using **first configuration**  
+4. Check and review the generated sql script patch file  
+5. Migrate the generated patch script to db **appdb** using again the **first configuration**  
+6. Register the generated patch script to db **appdb_dev**, this time using the **second configuration**; it is needed to avoid execution of created patch files on db **appdb_dev** generated by you at point *3.* It will be usefull when later we will try to keep updated our "db for changes"  
+7. Commit (and push if you use GIT) your patch file within your code changes  
+8. Checkout latest changes from your code versioning repository  
+9. Supposing that other team members made changes on db commiting their generated patches, we need to keep up-to-date our "db for changes":  
+    a. Run a migration to db **appdb_dev** using the **second configuration**  
+    b. Run again a migration to db **appdb** using the **first configuration**  
+    
+**WARNING:  
+When your project is going to use also comparison feature for data records (not just schema), is possible that different team members are going to add new records in pretty same time.  
+To avoid conflict or data-loss we suggest to inform team members about the changes before commiting; in this way other team members can still create their own new records using a different value for KEY FIELDS.**
+
 
 ### Problems or missing feature?
 
