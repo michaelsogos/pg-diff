@@ -13,7 +13,7 @@ const query = {
         return `SELECT relhasoids FROM pg_class WHERE oid = '${tableName}'::regclass`
     },
     "getTableColumns": function(tableName) {
-        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc, a.attidentity,
+        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc, ${helper.__checkServerCompatibility(10,0)?'a.attidentity':'NULL as attidentity'},
                 CASE 
                     WHEN t.typname = 'numeric' AND a.atttypmod > 0 THEN (a.atttypmod-4) >> 16
                     WHEN (t.typname = 'bpchar' or t.typname = 'varchar') AND a.atttypmod > 0 THEN a.atttypmod-4
@@ -109,6 +109,7 @@ const query = {
 }
 
 var helper = {
+    __serverVersion: null,
     __progressBar: new Progress(20),
     __progressBarValue: 0.0,
     __updateProgressbar: function(value, label) {
@@ -117,9 +118,16 @@ var helper = {
         process.stdout.cursorTo(0);
         process.stdout.write(this.__progressBar.update(this.__progressBarValue) + ' - ' + chalk.whiteBright(label));
     },
-    collectSchemaObjects: async function(client, schemas) {
+    __checkServerCompatibility: function(majorVersion, minorVersion) {
+        if (this.__serverVersion.major >= majorVersion && this.__serverVersion.minor >= minorVersion)
+            return true
+        else
+            return false
+    },
+    collectSchemaObjects: async function(client, schemas, serverVersion) {
         return new Promise(async(resolve, reject) => {
             try {
+                helper.__serverVersion = serverVersion;
                 helper.__updateProgressbar(0.0, 'Collecting database objects ...');
 
                 var schema = {

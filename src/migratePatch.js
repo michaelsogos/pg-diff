@@ -86,6 +86,19 @@ var helper = {
 
         return bigInt(lastVersionApplied);
     },
+    savePatch: async function() {
+        await helper.__prepareMigrationsHistoryTable();
+
+        let scriptsFolder = path.resolve(process.cwd(), global.config.options.outputDirectory);
+        let scriptFile = path.resolve(scriptsFolder, global.scriptName);
+
+        if (!fs.existsSync(scriptFile))
+            throw new Error(`The patch file ${scriptFile} does not exists!`);
+
+        let patchFileInfo = helper.__getPatchFileInfo(global.scriptName, scriptsFolder);
+        await helper.__addRecordToHistoryTable(patchFileInfo.version, patchFileInfo.name);
+        await helper.__updateRecordToHistoryTable(helper.__status.DONE, '', '', patchFileInfo.version);
+    },
     migrate: async function() {
         await helper.__prepareMigrationsHistoryTable();
 
@@ -138,11 +151,16 @@ var helper = {
 
     },
     __getPatchFileInfo(filename, filepath) {
-        let splittedPatchFileName = filename.split(/_(.+)/);
+        let indexOfSeparator = filename.indexOf("_");
+        let version = filename.substring(0, indexOfSeparator);
+        let name = filename.substring(indexOfSeparator + 1).replace('.sql', '');
+
+        if (indexOfSeparator < 0 || !/^\d+$/.test(version))
+            throw new Error(`The path file name ${filename} is not compatible with conventioned pattern {version}_{path name}.sql !`);
 
         let patchInfo = {
-            version: splittedPatchFileName[0],
-            name: splittedPatchFileName[1].replace('.sql', ''),
+            version: version,
+            name: name,
             fileName: filename,
             filePath: filepath
         }

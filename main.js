@@ -35,23 +35,27 @@ function __printHelp() {
     log(chalk.magenta("===   pg-diff-cli   HELP   ==="));
     log(chalk.magenta("=============================="));
     log();
-    log(chalk.gray('OPTION                \t\tDESCRIPTION'));
+    log(chalk.gray('OPTION                 \t\tDESCRIPTION'));
     log(chalk.green('-h,  --help           \t\t') + chalk.blue('To show this help.'));
     log(chalk.green('-c,  --compare        \t\t') + chalk.blue('To run compare and generate a patch file.'));
     log(chalk.green('-m,  --migrate        \t\t') + chalk.blue('To run migration applying all missing patch files.'));
-    log(chalk.green('-mu, --migrate-upto   \t\t') + chalk.blue('To run migration applying all patch files till the specified patch file.'));
+    /* log(chalk.green('-mu, --migrate-upto   \t\t') + chalk.blue('To run migration applying all patch files till the specified patch file.')); */
     log(chalk.green('-mr, --migrate-replay \t\t') + chalk.blue('To run migration applying all missing or failed or stuck patch files.'));
+    log(chalk.green('-s, --save            \t\t') + chalk.blue('To save\\register patch on migration history table without executing the script.'));
     log();
     log();
-    log(chalk.gray("TO COMPARE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("configuration-name script-name"));
-    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("development my-script"));
+    log(chalk.gray(" TO COMPARE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("configuration-name script-name"));
+    log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("development my-script"));
     log();
-    log(chalk.gray("TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("[-m | -mr] ") + chalk.cyan("configuration-name"));
-    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-m ") + chalk.cyan("development"));
-    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mr ") + chalk.cyan("development"));
+    log(chalk.gray(" TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("[-m | -mr] ") + chalk.cyan("configuration-name"));
+    log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-m ") + chalk.cyan("development"));
+    log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mr ") + chalk.cyan("development"));
+    /*     log();
+        log(chalk.gray(" TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("configuration-name patch-file-name"));
+        log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("development 20182808103040999_my-script.sql")); */
     log();
-    log(chalk.gray("TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("configuration-name patch-file-name"));
-    log(chalk.gray("   EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mu ") + chalk.cyan("development 20182808103040999_my-script.sql"));
+    log(chalk.gray("TO REGISTER: ") + chalk.yellow("pg-diff ") + chalk.gray("-s ") + chalk.cyan("configuration-name patch-file-name"));
+    log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-s ") + chalk.cyan("development 20182808103040999_my-script.sql"));
     log();
     log();
 }
@@ -130,6 +134,22 @@ async function __readArguments() {
                 __printOptions();
                 await __initDbConnections();
                 await __runMigration();
+            }
+            break;
+        case '-s':
+        case '--save':
+            {
+                if (args.length != 3) {
+                    log(chalk.red('Missing arguments!'));
+                    __printHelp();
+                    process.exit();
+                }
+                global.configName = args[1];
+                global.scriptName = args[2];
+                __loadConfig();
+                __printOptions();
+                await __initDbConnections();
+                await __runSavePatch();
             }
             break;
         default:
@@ -212,7 +232,8 @@ function __validateMigrationConfig() {
 }
 
 async function __initDbConnections() {
-    var spinner = new Spinner(chalk.blue('Connecting to databases ...'), ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
+    log();
+    var spinner = new Spinner(chalk.blue('Connecting to source database ...'), ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
     spinner.start();
 
     global.sourceClient = new Client({
@@ -224,7 +245,12 @@ async function __initDbConnections() {
     });
 
     await global.sourceClient.connect();
-    log(chalk.whiteBright(`Connected to [${global.config.source.host}:${global.config.source.port}/${global.config.source.database}] `) + chalk.green('✓'));
+    spinner.stop();
+    global.sourceDatabaseVersion = __parseSemVersion((await global.sourceClient.query("SELECT current_setting('server_version')")).rows[0].current_setting);
+    log(chalk.whiteBright(`Connected to PostgreSQL ${global.sourceDatabaseVersion.value} on [${global.config.source.host}:${global.config.source.port}/${global.config.source.database}] `) + chalk.green('✓'));
+
+    var spinner = new Spinner(chalk.blue('Connecting to target database ...'), ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']);
+    spinner.start();
 
     global.targetClient = new Client({
         user: global.config.target.user,
@@ -235,20 +261,21 @@ async function __initDbConnections() {
     });
 
     await global.targetClient.connect();
-    log(chalk.whiteBright(`Connected to [${global.config.target.host}:${global.config.target.port}/${global.config.target.database}] `) + chalk.green('✓'));
-
     spinner.stop();
+    global.targetDatabaseVersion = __parseSemVersion((await global.targetClient.query("SELECT current_setting('server_version')")).rows[0].current_setting);
+    log(chalk.whiteBright(`Connected to PostgreSQL ${global.targetDatabaseVersion.value} on [${global.config.target.host}:${global.config.target.port}/${global.config.target.database}] `) + chalk.green('✓'));
+
 }
 
 async function __runComparison() {
     log();
     log(chalk.yellow("Collect SOURCE database objects"));
-    let sourceSchema = await schema.collectSchemaObjects(sourceClient, global.config.options.schemaCompare.namespaces);
+    let sourceSchema = await schema.collectSchemaObjects(global.sourceClient, global.config.options.schemaCompare.namespaces, global.sourceDatabaseVersion);
 
     log();
     log();
     log(chalk.yellow("Collect TARGET database objects"));
-    let targetSchema = await schema.collectSchemaObjects(targetClient, global.config.options.schemaCompare.namespaces);
+    let targetSchema = await schema.collectSchemaObjects(global.targetClient, global.config.options.schemaCompare.namespaces, global.targetDatabaseVersion);
 
     log();
     log();
@@ -334,4 +361,24 @@ async function __runMigration() {
     await migratePatch.migrate();
 
     process.exit();
+}
+
+async function __runSavePatch() {
+    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+    const migratePatch = require('./src/migratePatch');
+    await migratePatch.savePatch();
+
+    process.exit();
+}
+
+function __parseSemVersion(version) {
+    if (typeof(version) != 'string') { return false; }
+    var splittedVersion = version.split('.');
+
+    return {
+        major: parseInt(splittedVersion[0]) || 0,
+        minor: parseInt(splittedVersion[1]) || 0,
+        patch: parseInt(splittedVersion[2]) || 0,
+        value: version
+    }
 }
