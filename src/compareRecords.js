@@ -124,13 +124,24 @@ var helper = {
             if (field === 'rowHash')
                 continue;
 
-            if (sourceRecord[field] !== targetRecord[field]) {
+            if (this.__compareFieldValues(sourceRecord[field], targetRecord[field])) {
                 changes[field] = sourceRecord[field];
             }
         }
 
         if (Object.keys(changes).length > 0)
             this.__tempScripts.push(sql.generateUpdateTableRecordScript(table, fields, keyFieldsMap, changes));
+    },
+    __compareFieldValues: function(sourceValue, targetValue) {
+        var sourceValueType = typeof sourceValue;
+        var targetValueType = typeof targetValue;
+
+        if (sourceValueType != targetValueType)
+            return false;
+        else if (sourceValue instanceof Date)
+            return sourceValue.getTime() !== targetValue.getTime();
+        else
+            return sourceValue !== targetValue
     },
     __getKeyFieldsMap: function(keyFields, record) {
         let keyFieldsMap = {};
