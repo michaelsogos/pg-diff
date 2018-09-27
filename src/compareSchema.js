@@ -329,7 +329,7 @@ var helper = {
                 } else {
                     this.__compareProcedurePrivileges(procedure, this.__sourceSchema.functions[procedure].argTypes, this.__sourceSchema.functions[procedure].privileges, this.__targetSchema.functions[procedure].privileges);
                     if (this.__sourceSchema.functions[procedure].owner != this.__targetSchema.functions[procedure].owner)
-                        this.__tempScripts.push(sql.generateChangeProcedureOwnerScript(procedure, this.__sourceSchema.functions[procedure].argTypes, sourceViews[view].owner));
+                        this.__tempScripts.push(sql.generateChangeProcedureOwnerScript(procedure, this.__sourceSchema.functions[procedure].argTypes, this.__sourceSchema.functions[procedure].owner));
                 }
             } else { //Procedure not exists on target database, then generate the script to create procedure
                 actionLabel = 'CREATE';
