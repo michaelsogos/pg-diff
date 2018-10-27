@@ -438,13 +438,13 @@ var helper = {
         let privileges = [];
 
         if (changes.hasOwnProperty('select'))
-            privileges.push(`${changes.execute?'GRANT':'REVOKE'} SELECT ON SEQUENCE ${sequence} ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
+            privileges.push(`${changes.select?'GRANT':'REVOKE'} SELECT ON SEQUENCE ${sequence} ${changes.select?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
 
         if (changes.hasOwnProperty('usage'))
-            privileges.push(`${changes.execute?'GRANT':'REVOKE'} USAGE ON SEQUENCE ${sequence} ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
+            privileges.push(`${changes.usage?'GRANT':'REVOKE'} USAGE ON SEQUENCE ${sequence} ${changes.usage?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
 
         if (changes.hasOwnProperty('update'))
-            privileges.push(`${changes.execute?'GRANT':'REVOKE'} UPDATE ON SEQUENCE ${sequence} ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
+            privileges.push(`${changes.update?'GRANT':'REVOKE'} UPDATE ON SEQUENCE ${sequence} ${changes.update?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
 
         let script = `\n${privileges.join('\n')}`;
 
@@ -472,6 +472,10 @@ CREATE ${global.config.options.schemaCompare.idempotentScript?'SEQUENCE IF NOT E
 \t${schema.isCycle ? '':'NO '}CYCLE
 \n${privileges.join('\n')}\n`;
 
+        return script;
+    },
+    generateRenameSequenceScript: function(old_name, new_name) {
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'SEQUENCE IF EXISTS':'SEQUENCE'} ${old_name} RENAME TO ${new_name};\n`;
         return script;
     }
 }

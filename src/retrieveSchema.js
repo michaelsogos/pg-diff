@@ -117,18 +117,24 @@ const query = {
                 WHERE p.proname='${functionName}' AND p.pronamespace::regnamespace = '"${schemaName}"'::regnamespace`
     },
     "getSequences": function(schemas) {
-        return `SELECT ns.nspname, c.relname, p.start_value, p.minimum_value, p.maximum_value, p.increment, p.cycle_option, r.rolname as owner, ${helper.__checkServerCompatibility(10,0)?'p.cache_size':'1 as cache_size'}
-                FROM pg_namespace ns, pg_class c, pg_roles r,
-                LATERAL pg_sequence_parameters(c.oid) p
-                WHERE c.relnamespace = ns.oid AND r.oid = c.relowner AND c.relkind = 'S' AND ns.nspname IN ('${schemas.join("','")}')
-                AND NOT (EXISTS (SELECT 1 FROM pg_depend WHERE pg_depend.objid = c.oid AND pg_depend.deptype = 'i'))`
+        return `SELECT seq_nspname, seq_name, owner, ownedby_table, ownedby_column, p.start_value, p.minimum_value, p.maximum_value, p.increment, p.cycle_option, ${helper.__checkServerCompatibility(10,0)?'p.cache_size':'1 as cache_size'}
+                FROM (
+                    SELECT   
+                        c.oid, ns.nspname AS seq_nspname, c.relname AS seq_name, r.rolname as owner, d.refobjid::regclass AS ownedby_table, a.attname AS ownedby_column	    
+                    FROM pg_class c
+                    INNER JOIN pg_namespace ns ON ns.oid = c.relnamespace 
+                    INNER JOIN pg_roles r ON r.oid = c.relowner 
+                    LEFT JOIN pg_depend d ON d.objid = c.oid AND d.refobjsubid > 0
+                    LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid	
+                    WHERE c.relkind = 'S' AND ns.nspname IN ('${schemas.join("','")}') AND (d.deptype IS NULL OR d.deptype ='a' ) ${helper.__checkServerCompatibility(10,0)?"AND (a.attrelid IS NULL OR a.attidentity = '')":""}  	
+                ) s, LATERAL pg_sequence_parameters(s.oid) p`
     },
     "getSequencePrivileges": function(schemaName, sequenceName) {
-        return `SELECT s.sequence_schema, s.sequence_name, u.usename, 
+        return `SELECT s.sequence_schema, s.sequence_name, u.usename, ${helper.__checkServerCompatibility(10,0)?'NULL AS cache_value,':'p.cache_value,'}
                 HAS_SEQUENCE_PRIVILEGE(u.usename,'"${schemaName}"."${sequenceName}"', 'SELECT') as select,
                 HAS_SEQUENCE_PRIVILEGE(u.usename,'"${schemaName}"."${sequenceName}"', 'USAGE') as usage,
                 HAS_SEQUENCE_PRIVILEGE(u.usename,'"${schemaName}"."${sequenceName}"', 'UPDATE') as update
-                FROM information_schema.sequences s, pg_user u
+                FROM information_schema.sequences s, pg_user u ${helper.__checkServerCompatibility(10,0)?'':', "'+schemaName+'"."'+sequenceName+'" p'}
                 WHERE s.sequence_schema = '${schemaName}' and s.sequence_name='${sequenceName}'`
     }
 }
@@ -468,7 +474,7 @@ var helper = {
         const progressBarStep = 0.1665 / sequences.rows.length;
 
         await Promise.all(sequences.rows.map(async(sequence) => {
-            let fullSequenceName = `"${sequence.nspname}"."${sequence.relname}"`;
+            let fullSequenceName = `"${sequence.seq_nspname}"."${sequence.seq_name}"`;
             result[fullSequenceName] = {
                 owner: sequence.owner,
                 startValue: sequence.start_value,
@@ -477,15 +483,19 @@ var helper = {
                 increment: sequence.increment,
                 cacheSize: sequence.cache_size,
                 isCycle: sequence.cycle_option,
+                ownedBy: `${sequence.ownedby_table}.${sequence.ownedby_column}`,
                 privileges: {}
             };
 
             helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting PRIVILEGES for sequence ${fullSequenceName}`);
 
             //Get sequence privileges
-            let privileges = await client.query(query.getSequencePrivileges(sequence.nspname, sequence.relname))
+            let privileges = await client.query(query.getSequencePrivileges(sequence.seq_nspname, sequence.seq_name))
 
             privileges.rows.forEach(privilege => {
+                if (privilege.cache_value != null) //for compatibility with pgsql version 9.x
+                    result[fullSequenceName].cacheSize = privilege.cache_value
+
                 result[fullSequenceName].privileges[privilege.usename] = {
                     select: privilege.select,
                     usage: privilege.usage,

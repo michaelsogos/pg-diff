@@ -363,8 +363,15 @@ var helper = {
             this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing SEQUENCE ${sequence}`);
             this.__tempScripts = [];
             let actionLabel = '';
+            let renamedOwnedSequence = this.__findRenamedSequenceOwnedByTargetTableColumn(sequence, this.__sourceSchema.sequences[sequence].ownedBy);
 
-            if (this.__targetSchema.sequences[sequence]) { //Sequence exists on both database, then compare sequence definition                     
+            if (renamedOwnedSequence) {
+                actionLabel = 'ALTER';
+
+                this.__tempScripts.push(sql.generateRenameSequenceScript(renamedOwnedSequence, sequence));
+                this.__compareSequenceDefinition(sequence, this.__sourceSchema.sequences[sequence], this.__targetSchema.sequences[renamedOwnedSequence]);
+                this.__compareSequencePrivileges(sequence, this.__sourceSchema.sequences[sequence].privileges, this.__targetSchema.sequences[renamedOwnedSequence].privileges);
+            } else if (this.__targetSchema.sequences[sequence]) { //Sequence exists on both database, then compare sequence definition                     
                 actionLabel = 'ALTER';
 
                 this.__compareSequenceDefinition(sequence, this.__sourceSchema.sequences[sequence], this.__targetSchema.sequences[sequence]);
@@ -378,10 +385,21 @@ var helper = {
             this.__appendScripts(`${actionLabel} SEQUENCE ${sequence}`);
         }
     },
+    __findRenamedSequenceOwnedByTargetTableColumn: function(sequenceName, tableColumn) {
+        let result = null;
+        for (let sequence in this.__targetSchema.sequences) {
+            if (this.__targetSchema.sequences[sequence].ownedBy == tableColumn && sequence != sequenceName) {
+                result = sequence;
+                break;
+            }
+        }
+
+        return result;
+    },
     __compareSequenceDefinition: function(sequence, sourceSequenceDefinition, targetSequenceDefinition) {
         for (let property in sourceSequenceDefinition) { //Get new or changed properties 
 
-            if (property == 'privileges') //skip this property, exists specific method
+            if (property == 'privileges' || property == 'ownedBy') //skip these properties from compare
                 continue;
 
             if (sourceSequenceDefinition[property] != targetSequenceDefinition[property])
