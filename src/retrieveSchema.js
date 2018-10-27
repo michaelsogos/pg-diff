@@ -2,17 +2,22 @@ const Exception = require('./error')
 const { Progress } = require('clui');
 const chalk = require('chalk');
 
+//TODO: Evaluate to retrieve object PRIVILEGES in one query instead to iterate each retrieved object to query for GRANTS
+
 const query = {
     "getSchemas": function(schemas) {
+        //TODO: Instead of using ::regrole casting, for better performance join with pg_roles
         return `SELECT nspname, nspowner::regrole::name as owner FROM pg_namespace WHERE nspname IN ('${schemas.join("','")}')`
     },
     "getTables": function(schemas) {
         return `SELECT schemaname, tablename, tableowner FROM pg_tables WHERE schemaname IN ('${schemas.join("','")}')`
     },
     "getTableOptions": function(tableName) {
+        //TODO: Instead of using ::regnamespace casting, for better performance join with pg_namespace
         return `SELECT relhasoids FROM pg_class WHERE oid = '${tableName}'::regclass`
     },
     "getTableColumns": function(tableName) {
+        //TODO: Instead of using ::regclass casting, for better performance join with pg_class
         return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc, ${helper.__checkServerCompatibility(10,0)?'a.attidentity':'NULL as attidentity'},
                 CASE 
                     WHEN t.typname = 'numeric' AND a.atttypmod > 0 THEN (a.atttypmod-4) >> 16
@@ -29,11 +34,13 @@ const query = {
                 WHERE attrelid = '${tableName}'::regclass AND attnum > 0 AND attisdropped = false`
     },
     "getTableConstraints": function(tableName) {
+        //TODO: Instead of using ::regclass casting, for better performance join with pg_class
         return `SELECT conname, contype, pg_get_constraintdef(c.oid) as definition
                 FROM pg_constraint c
                 WHERE c.conrelid = '${tableName}'::regclass`
     },
     "getTableIndexes": function(schemaName, tableName) {
+        //TODO: Instead of using ::regnamespace casting, for better performance join with pg_namespace
         return `SELECT idx.relname as indexname, pg_get_indexdef(idx.oid) AS indexdef
                 FROM pg_index i
                 INNER JOIN pg_class tbl ON tbl.oid = i.indrelid
@@ -83,6 +90,7 @@ const query = {
                 WHERE v.schemaname = '${schemaName}' and v.matviewname='${viewName}'`
     },
     "getViewDependencies": function(schemaName, viewName) {
+        //TODO: Instead of using ::regclass casting, for better performance join with pg_class
         return `SELECT                 
                 n.nspname AS schemaname,
                 c.relname AS tablename,
@@ -95,17 +103,34 @@ const query = {
                 WHERE r.ev_class='"${schemaName}"."${viewName}"'::regclass::oid AND d.refobjid <> '"${schemaName}"."${viewName}"'::regclass::oid`
     },
     "getFunctions": function(schemas) {
+        //TODO: Instead of using ::regrole casting, for better performance join with pg_roles
         return `SELECT p.proname, n.nspname, pg_get_functiondef(p.oid) as definition, p.proowner::regrole::name as owner, oidvectortypes(proargtypes) as argtypes
                 FROM pg_proc p
                 INNER JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname IN ('${schemas.join("','")}')`
     },
     "getFunctionPrivileges": function(schemaName, functionName, argTypes) {
+        //TODO: Instead of using ::regnamespace casting, for better performance join with pg_namespace
         return `SELECT p.pronamespace::regnamespace::name, p.proname, u.usename, 
                 HAS_FUNCTION_PRIVILEGE(u.usename,'"${schemaName}"."${functionName}"(${argTypes})','EXECUTE') as execute  
                 FROM pg_proc p, pg_user u 
                 WHERE p.proname='${functionName}' AND p.pronamespace::regnamespace = '"${schemaName}"'::regnamespace`
     },
+    "getSequences": function(schemas) {
+        return `SELECT ns.nspname, c.relname, p.start_value, p.minimum_value, p.maximum_value, p.increment, p.cycle_option, r.rolname as owner, ${helper.__checkServerCompatibility(10,0)?'p.cache_size':'1 as cache_size'}
+                FROM pg_namespace ns, pg_class c, pg_roles r,
+                LATERAL pg_sequence_parameters(c.oid) p
+                WHERE c.relnamespace = ns.oid AND r.oid = c.relowner AND c.relkind = 'S' AND ns.nspname IN ('${schemas.join("','")}')
+                AND NOT (EXISTS (SELECT 1 FROM pg_depend WHERE pg_depend.objid = c.oid AND pg_depend.deptype = 'i'))`
+    },
+    "getSequencePrivileges": function(schemaName, sequenceName) {
+        return `SELECT s.sequence_schema, s.sequence_name, u.usename, 
+                HAS_SEQUENCE_PRIVILEGE(u.usename,'"${schemaName}"."${sequenceName}"', 'SELECT') as select,
+                HAS_SEQUENCE_PRIVILEGE(u.usename,'"${schemaName}"."${sequenceName}"', 'USAGE') as usage,
+                HAS_SEQUENCE_PRIVILEGE(u.usename,'"${schemaName}"."${sequenceName}"', 'UPDATE') as update
+                FROM information_schema.sequences s, pg_user u
+                WHERE s.sequence_schema = '${schemaName}' and s.sequence_name='${sequenceName}'`
+    }
 }
 
 var helper = {
@@ -135,9 +160,10 @@ var helper = {
                     tables: await helper.__retrieveTables(client, schemas),
                     views: await helper.__retrieveViews(client, schemas),
                     materializedViews: await helper.__retrieveMaterializedViews(client, schemas),
-                    functions: await helper.__retrieveFunctions(client, schemas)
+                    functions: await helper.__retrieveFunctions(client, schemas),
+                    sequences: await helper.__retrieveSequences(client, schemas)
                 };
-                //TODO: Do we need to retrieve sequences?
+
                 //TODO: Do we need to retrieve data types?
                 //TODO: Do we need to retrieve roles?
                 //TODO: Do we need to retieve special table like TEMPORARY and UNLOGGED? for sure not temporary, but UNLOGGED probably yes.     
@@ -158,7 +184,7 @@ var helper = {
 
         //Get schemas
         const namespaces = await client.query(query.getSchemas(schemas));
-        const progressBarStep = 0.1999 / namespaces.rows.length;
+        const progressBarStep = 0.1665 / namespaces.rows.length;
 
         await Promise.all(namespaces.rows.map(async(namespace) => {
             result[namespace.nspname] = {
@@ -177,7 +203,7 @@ var helper = {
 
         //Get tables
         const tables = await client.query(query.getTables(schemas))
-        const progressBarStep = (0.1999 / tables.rows.length) / 5.0;
+        const progressBarStep = (0.1665 / tables.rows.length) / 5.0;
 
         await Promise.all(tables.rows.map(async(table) => {
             let fullTableName = `"${table.schemaname}"."${table.tablename}"`;
@@ -293,7 +319,7 @@ var helper = {
 
         //Get views
         const views = await client.query(query.getViews(schemas))
-        const progressBarStep = (0.1999 / views.rows.length) / 2.0;
+        const progressBarStep = (0.1665 / views.rows.length) / 2.0;
 
         await Promise.all(views.rows.map(async(view) => {
             let fullViewName = `"${view.schemaname}"."${view.viewname}"`;
@@ -346,7 +372,7 @@ var helper = {
 
         //Get materialized views
         const views = await client.query(query.getMaterializedViews(schemas))
-        const progressBarStep = (0.1999 / views.rows.length) / 3.0;
+        const progressBarStep = (0.1665 / views.rows.length) / 3.0;
 
         await Promise.all(views.rows.map(async(view) => {
             let fullViewName = `"${view.schemaname}"."${view.matviewname}"`;
@@ -408,7 +434,7 @@ var helper = {
 
         //Get functions
         const procedures = await client.query(query.getFunctions(schemas))
-        const progressBarStep = 0.1999 / procedures.rows.length;
+        const progressBarStep = 0.1665 / procedures.rows.length;
 
         await Promise.all(procedures.rows.map(async(procedure) => {
             let fullProcedureName = `"${procedure.nspname}"."${procedure.proname}"`;
@@ -427,6 +453,43 @@ var helper = {
             privileges.rows.forEach(privilege => {
                 result[fullProcedureName].privileges[privilege.usename] = {
                     execute: privilege.execute
+                }
+            });
+        }));
+        return result;
+    },
+    __retrieveSequences: async function(client, schemas) {
+        let result = {}
+
+        helper.__updateProgressbar(helper.__progressBarValue + 0.0001, 'Collecting sequences');
+
+        //Get functions
+        const sequences = await client.query(query.getSequences(schemas))
+        const progressBarStep = 0.1665 / sequences.rows.length;
+
+        await Promise.all(sequences.rows.map(async(sequence) => {
+            let fullSequenceName = `"${sequence.nspname}"."${sequence.relname}"`;
+            result[fullSequenceName] = {
+                owner: sequence.owner,
+                startValue: sequence.start_value,
+                minValue: sequence.minimum_value,
+                maxValue: sequence.maximum_value,
+                increment: sequence.increment,
+                cacheSize: sequence.cache_size,
+                isCycle: sequence.cycle_option,
+                privileges: {}
+            };
+
+            helper.__updateProgressbar(helper.__progressBarValue + progressBarStep, `Collecting PRIVILEGES for sequence ${fullSequenceName}`);
+
+            //Get sequence privileges
+            let privileges = await client.query(query.getSequencePrivileges(sequence.nspname, sequence.relname))
+
+            privileges.rows.forEach(privilege => {
+                result[fullSequenceName].privileges[privilege.usename] = {
+                    select: privilege.select,
+                    usage: privilege.usage,
+                    update: privilege.update
                 }
             });
         }));

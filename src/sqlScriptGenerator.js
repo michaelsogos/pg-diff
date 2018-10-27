@@ -63,6 +63,20 @@ var helper = {
 
         return definitions;
     },
+    __generateSequenceGrantsDefinition: function(sequence, role, privileges) {
+        let definitions = [];
+
+        if (privileges.select)
+            definitions.push(`GRANT SELECT ON SEQUENCE ${sequence} TO ${role};${hints.potentialRoleMissing}`);
+
+        if (privileges.usage)
+            definitions.push(`GRANT USAGE ON SEQUENCE ${sequence} TO ${role};${hints.potentialRoleMissing}`);
+
+        if (privileges.update)
+            definitions.push(`GRANT UPDATE ON SEQUENCE ${sequence} TO ${role};${hints.potentialRoleMissing}`);
+
+        return definitions;
+    },
     generateCreateSchemaScript: function(schema, owner) {
         let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'SCHEMA IF NOT EXISTS':'SCHEMA'} ${schema} AUTHORIZATION ${owner};\n`;
         //console.log(script);
@@ -389,6 +403,75 @@ var helper = {
     },
     generateSetSequenceValueScript(tableName, sequence) {
         let script = `\nSELECT setval(pg_get_serial_sequence('${tableName}', '${sequence.attname}'), max("${sequence.attname}"), true) FROM ${tableName};\n`;
+        return script;
+    },
+    generateChangeSequencePropertyScript(sequence, property, value) {
+        var definition = '';
+        switch (property) {
+            case 'startValue':
+                definition = `START WITH ${value}`;
+                break;
+            case 'minValue':
+                definition = `MINVALUE ${value}`;
+                break;
+            case 'maxValue':
+                definition = `MAXVALUE ${value}`;
+                break;
+            case 'increment':
+                definition = `INCREMENT BY ${value}`;
+                break;
+            case 'cacheSize':
+                definition = `CACHE ${value}`;
+                break;
+            case 'isCycle':
+                definition = `${value? '':'NO'} CYCLE`;
+                break;
+            case 'owner':
+                definition = `OWNER TO ${value}`;
+                break;
+        }
+
+        let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'SEQUENCE IF EXISTS':'SEQUENCE'} ${sequence} ${definition};\n`;
+        return script;
+    },
+    generateChangesSequenceRoleGrantsScript: function(sequence, role, changes) {
+        let privileges = [];
+
+        if (changes.hasOwnProperty('select'))
+            privileges.push(`${changes.execute?'GRANT':'REVOKE'} SELECT ON SEQUENCE ${sequence} ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
+
+        if (changes.hasOwnProperty('usage'))
+            privileges.push(`${changes.execute?'GRANT':'REVOKE'} USAGE ON SEQUENCE ${sequence} ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
+
+        if (changes.hasOwnProperty('update'))
+            privileges.push(`${changes.execute?'GRANT':'REVOKE'} UPDATE ON SEQUENCE ${sequence} ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
+
+        let script = `\n${privileges.join('\n')}`;
+
+        return script;
+    },
+    generateSequenceRoleGrantsScript: function(sequence, role, privileges) {
+        let script = `\n${this.__generateSequenceGrantsDefinition(sequence,role,privileges).join('\n')}`;
+        return script;
+    },
+    generateCreateSequenceScript: function(sequence, schema) {
+        //Generate privileges script
+        let privileges = [];
+        privileges.push(`ALTER SEQUENCE ${sequence} OWNER TO ${schema.owner};`);
+        for (let role in schema.privileges) {
+            privileges = privileges.concat(this.__generateSequenceGrantsDefinition(sequence, role, schema.privileges[role]))
+        }
+
+        let script = `\n
+CREATE ${global.config.options.schemaCompare.idempotentScript?'SEQUENCE IF NOT EXISTS':'SEQUENCE'} ${sequence} 
+\tINCREMENT BY ${schema.increment} 
+\tMINVALUE ${schema.minValue}
+\tMAXVALUE ${schema.maxValue}
+\tSTART WITH ${schema.startValue}
+\tCACHE ${schema.cacheSize}
+\t${schema.isCycle ? '':'NO '}CYCLE
+\n${privileges.join('\n')}\n`;
+
         return script;
     }
 }
