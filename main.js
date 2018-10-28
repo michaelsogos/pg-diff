@@ -20,6 +20,9 @@ global.configName = '';
 global.scriptName = '';
 global.config = null;
 global.replayMigration = false;
+global.schemaChanges = {
+    newColumns: {},
+};
 
 __printIntro();
 __readArguments().catch((err) => {

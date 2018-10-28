@@ -80,6 +80,10 @@ var helper = {
                 this.__compareTableColumn(table, column, sourceTableColumns[column], targetTableColumns[column], targetTableConstraints, targetTableIndexes);
             } else { //Table column not exists on target database, then generate script to add column
                 this.__tempScripts.push(sql.generateAddTableColumnScript(table, column, sourceTableColumns[column]));
+                if (!global.schemaChanges.newColumns[table])
+                    global.schemaChanges.newColumns[table] = [];
+
+                global.schemaChanges.newColumns[table].push(column);
             }
         }
         for (let column in targetTableColumns) { //Get dropped columns
