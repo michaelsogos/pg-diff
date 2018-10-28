@@ -125,11 +125,14 @@ var helper = {
     },
     __compareTableRecordFields: function(table, keyFieldsMap, fields, sourceRecord, targetRecord) {
         let changes = {};
+
         for (field in sourceRecord) {
             if (field === 'rowHash')
                 continue;
 
-            if (this.__compareFieldValues(sourceRecord[field], targetRecord[field])) {
+            if (targetRecord[field] === undefined && this.__checkIsNewColumn(table, field)) {
+                changes[field] = sourceRecord[field];
+            } else if (this.__compareFieldValues(sourceRecord[field], targetRecord[field])) {
                 changes[field] = sourceRecord[field];
             }
         }
@@ -139,9 +142,21 @@ var helper = {
             this.__tempScripts.push(sql.generateUpdateTableRecordScript(table, fields, keyFieldsMap, changes));
         }
     },
+    __checkIsNewColumn: function(table, field) {
+        if (global.schemaChanges.newColumns[table] &&
+            global.schemaChanges.newColumns[table].some(
+                (column) => {
+                    return column == `"${field}"`;
+                }))
+            return true;
+        else
+            return false;
+    },
     __compareFieldValues: function(sourceValue, targetValue) {
         var sourceValueType = typeof sourceValue;
         var targetValueType = typeof targetValue;
+
+
 
         if (sourceValueType != targetValueType)
             return false;
