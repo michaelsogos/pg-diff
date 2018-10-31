@@ -483,6 +483,7 @@ var helper = {
                 increment: sequence.increment,
                 cacheSize: sequence.cache_size,
                 isCycle: sequence.cycle_option,
+                name: sequence.seq_name,
                 ownedBy: `${sequence.ownedby_table}.${sequence.ownedby_column}`,
                 privileges: {}
             };

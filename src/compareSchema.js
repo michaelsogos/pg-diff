@@ -372,7 +372,7 @@ var helper = {
             if (renamedOwnedSequence) {
                 actionLabel = 'ALTER';
 
-                this.__tempScripts.push(sql.generateRenameSequenceScript(renamedOwnedSequence, sequence));
+                this.__tempScripts.push(sql.generateRenameSequenceScript(renamedOwnedSequence, `"${this.__sourceSchema.sequences[sequence].name}"`));
                 this.__compareSequenceDefinition(sequence, this.__sourceSchema.sequences[sequence], this.__targetSchema.sequences[renamedOwnedSequence]);
                 this.__compareSequencePrivileges(sequence, this.__sourceSchema.sequences[sequence].privileges, this.__targetSchema.sequences[renamedOwnedSequence].privileges);
             } else if (this.__targetSchema.sequences[sequence]) { //Sequence exists on both database, then compare sequence definition                     
