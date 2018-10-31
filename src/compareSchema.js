@@ -403,7 +403,7 @@ var helper = {
     __compareSequenceDefinition: function(sequence, sourceSequenceDefinition, targetSequenceDefinition) {
         for (let property in sourceSequenceDefinition) { //Get new or changed properties 
 
-            if (property == 'privileges' || property == 'ownedBy') //skip these properties from compare
+            if (property == 'privileges' || property == 'ownedBy' || property == 'name') //skip these properties from compare
                 continue;
 
             if (sourceSequenceDefinition[property] != targetSequenceDefinition[property])
