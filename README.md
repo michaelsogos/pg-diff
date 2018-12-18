@@ -68,6 +68,7 @@ Create a config file in your project folder like the below example:
             "schemaNamespace": {
                 "namespaces": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared
                 "idempotentScript": true //When true will create safe pgsql code in order to not throw exceptions in case of re-execution of the script, when false will create standard sql code but in case for any reason the script fail during execution it could be hard to rollback changes and re-execution probably will throw exceptions
+                "dropMissingTable": false //When true will detect tables that exists only on target database, in case a DROP statement will be generated
             },
             "dataCompare": { //This option is mandatory
                 "enable": true, //False to disable record comparing
