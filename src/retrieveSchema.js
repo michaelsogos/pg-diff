@@ -124,9 +124,9 @@ const query = {
                     FROM pg_class c
                     INNER JOIN pg_namespace ns ON ns.oid = c.relnamespace 
                     INNER JOIN pg_roles r ON r.oid = c.relowner 
-                    LEFT JOIN pg_depend d ON d.objid = c.oid AND d.refobjsubid > 0
-                    LEFT JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid	
-                    WHERE c.relkind = 'S' AND ns.nspname IN ('${schemas.join("','")}') AND (d.deptype IS NULL OR d.deptype ='a' ) ${helper.__checkServerCompatibility(10,0)?"AND (a.attrelid IS NULL OR a.attidentity = '')":""}  	
+                    INNER JOIN pg_depend d ON d.objid = c.oid AND d.refobjsubid > 0 AND d.deptype ='a'
+                    INNER JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid	
+                    WHERE c.relkind = 'S' AND ns.nspname IN ('${schemas.join("','")}') ${helper.__checkServerCompatibility(10,0)?"AND a.attidentity = ''":""}  	
                 ) s, LATERAL pg_sequence_parameters(s.oid) p`
     },
     "getSequencePrivileges": function(schemaName, sequenceName) {

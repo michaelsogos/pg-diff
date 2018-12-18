@@ -3,7 +3,8 @@ const hints = {
     changeColumnDataType: " --WARN: Change column data type can occure in a casting error, the suggested casting expression is the default one and may not fit your needs!",
     dropColumn: " --WARN: Drop column can occure in data loss!",
     potentialRoleMissing: " --WARN: Grant\\Revoke privileges to a role can occure in a sql error during execution if role is missing to the target database!",
-    identityColumnDetected: " --WARN: Identity column has been detected, an error can occure because constraints violation!"
+    identityColumnDetected: " --WARN: Identity column has been detected, an error can occure because constraints violation!",
+    dropTable: " --WARN: Drop table can occure in data loss!",
 }
 
 var helper = {
@@ -79,7 +80,10 @@ var helper = {
     },
     generateCreateSchemaScript: function(schema, owner) {
         let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'SCHEMA IF NOT EXISTS':'SCHEMA'} ${schema} AUTHORIZATION ${owner};\n`;
-        //console.log(script);
+        return script;
+    },
+    generateDropTableScript: function(table) {
+        let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table};\n`;
         return script;
     },
     generateCreateTableScript: function(table, schema) {
@@ -117,7 +121,6 @@ var helper = {
         }
 
         let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'TABLE IF NOT EXISTS':'TABLE'} ${table} (\n\t${columns.join(',\n\t')}\n)\n${options};\n${indexes.join('\n')}\n${privileges.join('\n')}\n`;
-        //console.log(script)
         return script;
     },
     generateAddTableColumnScript: function(table, column, schema) {
@@ -125,7 +128,6 @@ var helper = {
         if (script.includes('NOT NULL') && !script.includes('DEFAULT'))
             script += hints.addColumnNotNullableWithoutDefaultValue;
 
-        // console.log(script);
         script += '\n';
         return script;
     },
@@ -156,45 +158,36 @@ var helper = {
 
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table}\n\t${definitions.join(',\n\t')};\n`
 
-        //console.log(script);
-
         //TODO: Should we include COLLATE when change column data type?
 
         return script;
     },
     generateDropTableColumnScript: function(table, column) {
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.schemaCompare.idempotentScript?'COLUMN IF EXISTS':'COLUMN'} ${column} CASCADE;${hints.dropColumn}\n`;
-        //console.log(script);
         return script;
     },
     generateAddTableConstraintScript: function(table, constraint, schema) {
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} ADD CONSTRAINT ${constraint} ${schema.definition};\n`;
-        //console.log(script);
         return script;
     },
     generateDropTableConstraintScript: function(table, constraint) {
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} DROP ${global.config.options.schemaCompare.idempotentScript?'CONSTRAINT IF EXISTS':'CONSTRAINT'} ${constraint};\n`;
-        //console.log(script);
         return script;
     },
     generateChangeTableOptionsScript: function(table, options) {
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} SET ${options.withOids?'WITH':'WITHOUT'} OIDS;\n`;
-        //console.log(script);
         return script;
     },
     generateChangeIndexScript: function(index, definition) {
         let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'INDEX IF EXISTS':'INDEX'} ${index};\n${definition};\n`;
-        //console.log(script);
         return script;
     },
     generateDropIndexScript: function(index) {
         let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'INDEX IF EXISTS':'INDEX'} ${index};\n`;
-        //console.log(script);
         return script;
     },
     generateTableRoleGrantsScript: function(table, role, privileges) {
         let script = `\n${this.__generateTableGrantsDefinition(table,role,privileges).join('\n')}\n`;
-        //console.log(script);
         return script;
     },
     generateChangesTableRoleGrantsScript: function(table, role, changes) {
@@ -222,12 +215,10 @@ var helper = {
             privileges.push(`${changes.trigger?'GRANT':'REVOKE'} TRIGGER ON TABLE ${table} ${changes.trigger?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
 
         let script = `\n${privileges.join('\n')}\n`;
-        //console.log(script);
         return script;
     },
     generateChangeTableOwnerScript: function(table, owner) {
         let script = `\nALTER ${global.config.options.schemaCompare.idempotentScript?'TABLE IF EXISTS':'TABLE'} ${table} OWNER TO ${owner};\n`;
-        //console.log(script);
         return script;
     },
     generateCreateViewScript: function(view, schema) {
@@ -239,12 +230,10 @@ var helper = {
         }
 
         let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript? 'OR REPLACE VIEW':'VIEW'} ${view} AS ${schema.definition}\n${privileges.join('\n')}\n`;
-        //console.log(script)
         return script;
     },
     generateDropViewScript: function(view) {
         let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'VIEW IF EXISTS':'VIEW'} ${view};`;
-        //console.log(script)
         return script;
     },
     generateCreateMaterializedViewScript: function(view, schema) {
@@ -263,12 +252,10 @@ var helper = {
         }
 
         let script = `\nCREATE ${global.config.options.schemaCompare.idempotentScript?'MATERIALIZED VIEW IF NOT EXISTS':'MATERIALIZED VIEW'} ${view} AS ${schema.definition}\n${indexes.join('\n')}\n${privileges.join('\n')}\n`;
-        //console.log(script)
         return script;
     },
     generateDropMaterializedViewScript: function(view) {
         let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'MATERIALIZED VIEW IF EXISTS':'MATERIALIZED VIEW'} ${view};`;
-        //console.log(script)
         return script;
     },
     generateCreateProcedureScript: function(procedure, schema) {
@@ -280,17 +267,14 @@ var helper = {
         }
 
         let script = `\n${schema.definition}\n${privileges.join('\n')}\n`;
-        //console.log(script)
         return script;
     },
     generateChangeProcedureScript: function(procedure, schema) {
         let script = `\nDROP ${global.config.options.schemaCompare.idempotentScript?'FUNCTION IF EXISTS':'FUNCTION'} ${procedure}(${schema.argTypes});\n${this.generateCreateProcedureScript(procedure,schema)}`;
-        //console.log(script)
         return script;
     },
     generateProcedureRoleGrantsScript: function(procedure, argTypes, role, privileges) {
         let script = `\n${this.__generateProcedureGrantsDefinition(procedure,argTypes,role,privileges).join('\n')}`;
-        console.log(script);
         return script;
     },
     generateChangesProcedureRoleGrantsScript: function(procedure, argTypes, role, changes) {
@@ -300,12 +284,10 @@ var helper = {
             privileges.push(`${changes.execute?'GRANT':'REVOKE'} EXECUTE ON FUNCTION ${procedure}(${argTypes}) ${changes.execute?'TO':'FROM'} ${role};${hints.potentialRoleMissing}`);
 
         let script = `\n${privileges.join('\n')}`;
-        //console.log(script);
         return script;
     },
     generateChangeProcedureOwnerScript: function(procedure, argTypes, owner) {
         let script = `\nALTER FUNCTION ${procedure}(${argTypes}) OWNER TO ${owner};`;
-        //console.log(script);
         return script;
     },
     generateUpdateTableRecordScript: function(table, fields, filterConditions, changes) {
@@ -469,7 +451,7 @@ CREATE ${global.config.options.schemaCompare.idempotentScript?'SEQUENCE IF NOT E
 \tMAXVALUE ${schema.maxValue}
 \tSTART WITH ${schema.startValue}
 \tCACHE ${schema.cacheSize}
-\t${schema.isCycle ? '':'NO '}CYCLE
+\t${schema.isCycle ? '':'NO '}CYCLE;
 \n${privileges.join('\n')}\n`;
 
         return script;

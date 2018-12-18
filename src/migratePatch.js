@@ -97,13 +97,18 @@ var helper = {
 
         let patchFileInfo = helper.__getPatchFileInfo(global.scriptName, scriptsFolder);
         await helper.__addRecordToHistoryTable(patchFileInfo.version, patchFileInfo.name);
+        console.log(chalk.green(`The patch version={${patchFileInfo.version}} and name={${patchFileInfo.name}} has been registered.`));
+
         await helper.__updateRecordToHistoryTable(helper.__status.DONE, '', '', patchFileInfo.version);
+        console.log(chalk.green(`The patch version={${patchFileInfo.version}} and name={${patchFileInfo.name}} has been saved in status 'DONE'.`));
     },
     migrate: async function() {
         await helper.__prepareMigrationsHistoryTable();
 
         let scriptsFolder = path.resolve(process.cwd(), global.config.options.outputDirectory);
-        let scriptFiles = fs.readdirSync(scriptsFolder).sort().filter((file) => { return file.match(/.*\.(sql)/ig) });
+        let scriptFiles = fs.readdirSync(scriptsFolder).sort().filter((file) => {
+            return file.match(/.*\.(sql)/ig)
+        });
 
         for (let index in scriptFiles) {
             let patchFileInfo = helper.__getPatchFileInfo(scriptFiles[index], scriptsFolder);
@@ -131,6 +136,7 @@ var helper = {
                     break;
                 case helper.__status.TO_APPLY:
                     await helper.applyPatch(patchFileInfo);
+                    console.log(chalk.green(`The patch version={${patchFileInfo.version}} and name={${patchFileInfo.name}} has been applied.`));
                     break;
                 default:
                     throw new Error(`The status "${args[0]}" not recognized! Impossible to apply patch version={${patchFileInfo.version}} and name={${patchFileInfo.name}}.`);

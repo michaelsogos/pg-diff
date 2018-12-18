@@ -1,5 +1,7 @@
 const sql = require('./sqlScriptGenerator')
-const { Progress } = require('clui');
+const {
+    Progress
+} = require('clui');
 const chalk = require('chalk');
 
 var helper = {
@@ -42,10 +44,15 @@ var helper = {
     },
     __compareTables: function() {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing tables');
-        const progressBarStep = 0.1665 / Object.keys(this.__sourceSchema.tables).length;
+        let tablesToCompareLength = Object.keys(this.__sourceSchema.tables).length;
 
-        for (let table in this.__sourceSchema.tables) { //Get new or changed tablestable
-            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing TABLE ${table}`);
+        if (global.config.options.schemaCompare.dropMissingTable)
+            tablesToCompareLength += Object.keys(this.__targetSchema.tables).length;
+
+        const progressBarStep = 0.1665 / tablesToCompareLength;
+
+        for (let table in this.__sourceSchema.tables) { //Get new or changed tables
+            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing SOURCE TABLE ${table}`);
             this.__tempScripts = [];
             this.__droppedConstraints = [];
             this.__droppedIndexes = [];
@@ -69,6 +76,17 @@ var helper = {
 
             this.__appendScripts(`${actionLabel} TABLE ${table}`);
         }
+
+        if (global.config.options.schemaCompare.dropMissingTable)
+            for (let table in this.__targetSchema.tables) { //Get missing tables
+                this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing TARGET TABLE ${table}`);
+                this.__tempScripts = [];
+
+                if (!this.__sourceSchema.tables.hasOwnProperty(table))
+                    this.__tempScripts.push(sql.generateDropTableScript(table));
+
+                this.__appendScripts(`DROP TABLE ${table}`);
+            }
     },
     __compareTableOptions: function(table, sourceTableOptions, targetTableOptions) {
         if (sourceTableOptions.withOids != targetTableOptions.withOids)
