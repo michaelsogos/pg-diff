@@ -3,14 +3,14 @@
         "source": {
             "host": "localhost",
             "port": 5432,
-            "database": "hukocash",
+            "database": "hukocash_dev",
             "user": "postgres",
             "password": "postgres"
         },
         "target": {
             "host": "localhost",
             "port": 5432,
-            "database": "hukocash_dev",
+            "database": "hukocash",
             "user": "postgres",
             "password": "postgres"
         },
@@ -19,7 +19,8 @@
             "outputDirectory": "db_migration",
             "schemaCompare": {
                 "namespaces": ["public"],
-                "idempotentScript": true
+                "idempotentScript": true,
+                "dropMissingTable": false
             },
             "dataCompare": {
                 "enable": true,
