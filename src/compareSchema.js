@@ -14,20 +14,20 @@ var helper = {
     __progressBarValue: 0.0,
     __sourceSchema: {},
     __targetSchema: {},
-    __updateProgressbar: function(value, label) {
+    __updateProgressbar: function (value, label) {
         this.__progressBarValue = value;
         process.stdout.clearLine();
         process.stdout.cursorTo(0);
         process.stdout.write(this.__progressBar.update(this.__progressBarValue) + ' - ' + chalk.whiteBright(label));
     },
-    __appendScripts: function(actionLabel) {
+    __appendScripts: function (actionLabel) {
         if (this.__tempScripts.length > 0) {
             this.__finalScripts.push(`\n--- BEGIN ${actionLabel} ---\n`);
             this.__finalScripts = this.__finalScripts.concat(this.__tempScripts);
             this.__finalScripts.push(`\n--- END ${actionLabel} ---\n`);
         }
     },
-    __compareSchemas: function() {
+    __compareSchemas: function () {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing schemas');
         const progressBarStep = 0.1665 / Object.keys(this.__sourceSchema.schemas).length;
 
@@ -42,7 +42,7 @@ var helper = {
             this.__appendScripts(`CREATE SCHEMA ${schema}`);
         }
     },
-    __compareTables: function() {
+    __compareTables: function () {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing tables');
         let tablesToCompareLength = Object.keys(this.__sourceSchema.tables).length;
 
@@ -88,11 +88,11 @@ var helper = {
                 this.__appendScripts(`DROP TABLE ${table}`);
             }
     },
-    __compareTableOptions: function(table, sourceTableOptions, targetTableOptions) {
+    __compareTableOptions: function (table, sourceTableOptions, targetTableOptions) {
         if (sourceTableOptions.withOids != targetTableOptions.withOids)
             this.__tempScripts.push(sql.generateChangeTableOptionsScript(table, sourceTableOptions));
     },
-    __compareTableColumns: function(table, sourceTableColumns, targetTableColumns, targetTableConstraints, targetTableIndexes) {
+    __compareTableColumns: function (table, sourceTableColumns, targetTableColumns, targetTableConstraints, targetTableIndexes) {
         for (let column in sourceTableColumns) { //Get new or changed columns
             if (targetTableColumns[column]) { //Table column exists on both database, then compare column schema
                 this.__compareTableColumn(table, column, sourceTableColumns[column], targetTableColumns[column], targetTableConstraints, targetTableIndexes);
@@ -109,7 +109,7 @@ var helper = {
                 this.__tempScripts.push(sql.generateDropTableColumnScript(table, column))
         }
     },
-    __compareTableColumn: function(table, column, sourceTableColumn, targetTableColumn, targetTableConstraints, targetTableIndexes) {
+    __compareTableColumn: function (table, column, sourceTableColumn, targetTableColumn, targetTableConstraints, targetTableIndexes) {
         let changes = {};
 
         if (sourceTableColumn.nullable != targetTableColumn.nullable)
@@ -194,7 +194,7 @@ var helper = {
             this.__tempScripts.push(sql.generateChangeTableColumnScript(table, column, changes));
         }
     },
-    __compareTableConstraints: function(table, sourceTableConstraints, targetTableConstraints) {
+    __compareTableConstraints: function (table, sourceTableConstraints, targetTableConstraints) {
         for (let constraint in sourceTableConstraints) { //Get new or changed constraint
             if (targetTableConstraints[constraint]) { //Table constraint exists on both database, then compare column schema
                 if (sourceTableConstraints[constraint].definition != targetTableConstraints[constraint].definition) {
@@ -214,7 +214,7 @@ var helper = {
                 this.__tempScripts.push(sql.generateDropTableConstraintScript(table, constraint));
         }
     },
-    __compareTableIndexes: function(sourceTableIndexes, targetTableIndexes) {
+    __compareTableIndexes: function (sourceTableIndexes, targetTableIndexes) {
         for (let index in sourceTableIndexes) { //Get new or changed indexes            
             if (targetTableIndexes[index]) { //Table index exists on both database, then compare index definition
                 if (sourceTableIndexes[index].definition != targetTableIndexes[index].definition) {
@@ -234,7 +234,7 @@ var helper = {
                 this.__tempScripts.push(sql.generateDropIndexScript(index))
         }
     },
-    __compareTablePrivileges: function(table, sourceTablePrivileges, targetTablePrivileges) {
+    __compareTablePrivileges: function (table, sourceTablePrivileges, targetTablePrivileges) {
         for (let role in sourceTablePrivileges) { //Get new or changed role privileges            
             if (targetTablePrivileges[role]) { //Table privileges for role exists on both database, then compare privileges
                 let changes = {};
@@ -267,12 +267,17 @@ var helper = {
             }
         }
     },
-    __compareViews: function() {
+    __compareViews: function () {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing views');
-        const progressBarStep = 0.1665 / Object.keys(this.__sourceSchema.views).length;
+        let viewsToCompareLength = Object.keys(this.__sourceSchema.views).length;
+
+        if (global.config.options.schemaCompare.dropMissingView)
+            viewsToCompareLength += Object.keys(this.__targetSchema.views).length;
+
+        const progressBarStep = 0.1665 / viewsToCompareLength;
 
         for (let view in this.__sourceSchema.views) { //Get new or changed views
-            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing VIEW ${view}`);
+            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing SOURCE VIEW ${view}`);
             this.__tempScripts = [];
             let actionLabel = '';
 
@@ -299,13 +304,29 @@ var helper = {
 
             this.__appendScripts(`${actionLabel} VIEW ${view}`);
         }
+
+        if (global.config.options.schemaCompare.dropMissingView)
+            for (let view in this.__targetSchema.views) { //Get missing views
+                this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing TARGET VIEW ${view}`);
+                this.__tempScripts = [];
+
+                if (!this.__sourceSchema.views.hasOwnProperty(view))
+                    this.__tempScripts.push(sql.generateDropViewScript(view));
+
+                this.__appendScripts(`DROP VIEW ${view}`);
+            }
     },
-    __compareMaterializedViews: function() {
+    __compareMaterializedViews: function () {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing materialized views');
-        const progressBarStep = 0.1665 / Object.keys(this.__sourceSchema.materializedViews).length;
+        let mviewsToCompareLength = Object.keys(this.__sourceSchema.materializedViews).length;
+
+        if (global.config.options.schemaCompare.dropMissingView)
+            mviewsToCompareLength += Object.keys(this.__targetSchema.materializedViews).length;
+
+        const progressBarStep = 0.1665 / mviewsToCompareLength;
 
         for (let view in this.__sourceSchema.materializedViews) { //Get new or changed materialized views
-            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing MATERIALIZED VIEW ${view}`);
+            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing SOURCE MATERIALIZED VIEW ${view}`);
             this.__tempScripts = [];
             let actionLabel = '';
 
@@ -333,13 +354,29 @@ var helper = {
 
             this.__appendScripts(`${actionLabel} MATERIALIZED VIEW ${view}`);
         }
+
+        if (global.config.options.schemaCompare.dropMissingView)
+            for (let view in this.__targetSchema.materializedViews) { //Get missing materialized views
+                this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing TARGET MATERIALIZED VIEW ${view}`);
+                this.__tempScripts = [];
+
+                if (!this.__sourceSchema.materializedViews.hasOwnProperty(view))
+                    this.__tempScripts.push(sql.generateDropMaterializedViewScript(view));
+
+                this.__appendScripts(`DROP MATERIALIZED VIEW ${view}`);
+            }
     },
-    __compareProcedures: function() {
+    __compareProcedures: function () {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing functions');
-        const progressBarStep = 0.1665 / Object.keys(this.__sourceSchema.functions).length;
+        let proceduresToCompareLength = Object.keys(this.__sourceSchema.functions).length;
+
+        if (global.config.options.schemaCompare.dropMissingFunction)
+            proceduresToCompareLength += Object.keys(this.__targetSchema.functions).length;
+
+        const progressBarStep = 0.1665 / proceduresToCompareLength;
 
         for (let procedure in this.__sourceSchema.functions) { //Get new or changed procedures
-            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing FUNCTION ${procedure}`);
+            this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing SOURCE FUNCTION ${procedure}`);
             this.__tempScripts = [];
             let actionLabel = '';
 
@@ -362,8 +399,19 @@ var helper = {
 
             this.__appendScripts(`${actionLabel} FUNCTION ${procedure}`);
         }
+
+        if (global.config.options.schemaCompare.dropMissingFunction)
+            for (let procedure in this.__targetSchema.functions) { //Get missing functions
+                this.__updateProgressbar(this.__progressBarValue + progressBarStep, `Comparing TARGET FUNCTION ${procedure}`);
+                this.__tempScripts = [];
+
+                if (!this.__sourceSchema.functions.hasOwnProperty(procedure))
+                    this.__tempScripts.push(sql.generateDropProcedureScript(procedure));
+
+                this.__appendScripts(`DROP FUNCTION ${procedure}`);
+            }
     },
-    __compareProcedurePrivileges: function(procedure, argTypes, sourceProcedurePrivileges, targetProcedurePrivileges) {
+    __compareProcedurePrivileges: function (procedure, argTypes, sourceProcedurePrivileges, targetProcedurePrivileges) {
         for (let role in sourceProcedurePrivileges) { //Get new or changed role privileges            
             if (targetProcedurePrivileges[role]) { //Procedure privileges for role exists on both database, then compare privileges
                 let changes = {};
@@ -377,7 +425,7 @@ var helper = {
             }
         }
     },
-    __compareSequences: function() {
+    __compareSequences: function () {
         this.__updateProgressbar(this.__progressBarValue + 0.0001, 'Comparing sequences');
         const progressBarStep = 0.1665 / Object.keys(this.__sourceSchema.sequences).length;
 
@@ -407,7 +455,7 @@ var helper = {
             this.__appendScripts(`${actionLabel} SEQUENCE ${sequence}`);
         }
     },
-    __findRenamedSequenceOwnedByTargetTableColumn: function(sequenceName, tableColumn) {
+    __findRenamedSequenceOwnedByTargetTableColumn: function (sequenceName, tableColumn) {
         let result = null;
         for (let sequence in this.__targetSchema.sequences) {
             if (this.__targetSchema.sequences[sequence].ownedBy == tableColumn && sequence != sequenceName) {
@@ -418,7 +466,7 @@ var helper = {
 
         return result;
     },
-    __compareSequenceDefinition: function(sequence, sourceSequenceDefinition, targetSequenceDefinition) {
+    __compareSequenceDefinition: function (sequence, sourceSequenceDefinition, targetSequenceDefinition) {
         for (let property in sourceSequenceDefinition) { //Get new or changed properties 
 
             if (property == 'privileges' || property == 'ownedBy' || property == 'name') //skip these properties from compare
@@ -428,7 +476,7 @@ var helper = {
                 this.__tempScripts.push(sql.generateChangeSequencePropertyScript(sequence, property, sourceSequenceDefinition[property]))
         }
     },
-    __compareSequencePrivileges: function(sequence, sourceSequencePrivileges, targetSequencePrivileges) {
+    __compareSequencePrivileges: function (sequence, sourceSequencePrivileges, targetSequencePrivileges) {
         for (let role in sourceSequencePrivileges) { //Get new or changed role privileges            
             if (targetSequencePrivileges[role]) { //Sequence privileges for role exists on both database, then compare privileges
                 let changes = {};
@@ -448,7 +496,7 @@ var helper = {
             }
         }
     },
-    compareDatabaseObjects: function(sourceSchema, targetSchema) {
+    compareDatabaseObjects: function (sourceSchema, targetSchema) {
         this.__updateProgressbar(0.0, 'Comparing database objects ...');
 
         this.__sourceSchema = sourceSchema;
