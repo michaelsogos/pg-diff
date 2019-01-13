@@ -20,7 +20,9 @@
             "schemaCompare": {
                 "namespaces": ["public"],
                 "idempotentScript": true,
-                "dropMissingTable": false
+                "dropMissingTable": false,
+                "dropMissingView": false,
+                "dropMissingFunction": false
             },
             "dataCompare": {
                 "enable": true,
