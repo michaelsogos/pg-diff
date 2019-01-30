@@ -1,6 +1,6 @@
 {
     "name": "pg-diff-cli",
-    "version": "1.2.5",
+    "version": "1.2.6",
     "description": "PostgreSQL schema and data comparing tool",
     "pgver": "9.6+",
     "main": "main.js",
