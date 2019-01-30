@@ -1,5 +1,7 @@
 const sql = require('./sqlScriptGenerator')
-const { Progress } = require('clui');
+const {
+    Progress
+} = require('clui');
 const chalk = require('chalk');
 
 var helper = {
@@ -8,20 +10,20 @@ var helper = {
     __isSequenceRebaseNeeded: false,
     __progressBar: new Progress(20),
     __progressBarValue: 0.0,
-    __updateProgressbar: function(value, label) {
+    __updateProgressbar: function (value, label) {
         this.__progressBarValue = value;
         process.stdout.clearLine();
         process.stdout.cursorTo(0);
         process.stdout.write(this.__progressBar.update(this.__progressBarValue) + ' - ' + chalk.whiteBright(label));
     },
-    __appendScripts: function(actionLabel) {
+    __appendScripts: function (actionLabel) {
         if (this.__tempScripts.length > 0) {
             this.__finalScripts.push(`\n--- BEGIN ${actionLabel} ---\n`);
             this.__finalScripts = this.__finalScripts.concat(this.__tempScripts);
             this.__finalScripts.push(`\n--- END ${actionLabel} ---\n`);
         }
     },
-    compareTablesRecords: function(tables, sourceTablesRecords, targetTablesRecords) {
+    compareTablesRecords: function (tables, sourceTablesRecords, targetTablesRecords) {
         this.__updateProgressbar(0.0, 'Comparing tables records ...');
         const progressBarStep = 1.0 / Object.keys(tables).length;
 
@@ -53,15 +55,15 @@ var helper = {
 
         return this.__finalScripts;
     },
-    __rebaseSequences: function(tableName, tableSequences) {
+    __rebaseSequences: function (tableName, tableSequences) {
         tableSequences.forEach(sequence => {
             this.__tempScripts.push(sql.generateSetSequenceValueScript(tableName, sequence));
         });
     },
-    __checkIdentityAllowUserValues: function(tableSequences) {
+    __checkIdentityAllowUserValues: function (tableSequences) {
         return !tableSequences.some((sequence) => sequence.identitytype === 'ALWAYS');
     },
-    __compareTableRecords: function(table, keyFields, sourceTableRecords, targetTableRecords, isIdentityUserValuesAllowed) {
+    __compareTableRecords: function (table, keyFields, sourceTableRecords, targetTableRecords, isIdentityUserValuesAllowed) {
         let ignoredRowHash = [];
 
         sourceTableRecords.records.rows.forEach((record, index) => {
@@ -81,7 +83,7 @@ var helper = {
             //Check if record is duplicated in target
             let targetRecord = [];
             if (targetTableRecords.exists)
-                targetRecord = targetTableRecords.records.rows.filter(function(r) {
+                targetRecord = targetTableRecords.records.rows.filter(function (r) {
                     return r.rowHash === record.rowHash;
                 });
 
@@ -123,7 +125,7 @@ var helper = {
                 this.__isSequenceRebaseNeeded = true;
             });
     },
-    __compareTableRecordFields: function(table, keyFieldsMap, fields, sourceRecord, targetRecord) {
+    __compareTableRecordFields: function (table, keyFieldsMap, fields, sourceRecord, targetRecord) {
         let changes = {};
 
         for (field in sourceRecord) {
@@ -142,7 +144,7 @@ var helper = {
             this.__tempScripts.push(sql.generateUpdateTableRecordScript(table, fields, keyFieldsMap, changes));
         }
     },
-    __checkIsNewColumn: function(table, field) {
+    __checkIsNewColumn: function (table, field) {
         if (global.schemaChanges.newColumns[table] &&
             global.schemaChanges.newColumns[table].some(
                 (column) => {
@@ -152,7 +154,7 @@ var helper = {
         else
             return false;
     },
-    __compareFieldValues: function(sourceValue, targetValue) {
+    __compareFieldValues: function (sourceValue, targetValue) {
         var sourceValueType = typeof sourceValue;
         var targetValueType = typeof targetValue;
 
@@ -165,15 +167,15 @@ var helper = {
         else
             return sourceValue !== targetValue
     },
-    __getKeyFieldsMap: function(keyFields, record) {
+    __getKeyFieldsMap: function (keyFields, record) {
         let keyFieldsMap = {};
         keyFields.forEach((item, index) => {
             keyFieldsMap[item] = record[item];
         });
         return keyFieldsMap;
     },
-    __checkDuplicatedRowHash: function(records, rowHash, index) {
-        return records.some(function(r, idx) {
+    __checkDuplicatedRowHash: function (records, rowHash, index) {
+        return records.some(function (r, idx) {
             return (r.rowHash === rowHash && idx > index);
         });
     }

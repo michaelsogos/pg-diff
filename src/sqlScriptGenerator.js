@@ -348,9 +348,10 @@ var helper = {
                 return `'${value.toISOString()}'`;
             case 'A': //ARRAY
             case 'R': //RANGE
-            case 'S': //STRING
             case 'U': //BIT
-                return `'${value}'`; //Value should have also curly braket
+            case 'S': //STRING
+                return `'${value.replace(/'/g, "''")}'`;
+                // return `'${value}'`;
             case 'B': //BOOL
             case 'E': //ENUM
             case 'G': //GEOMETRIC
