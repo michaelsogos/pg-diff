@@ -73,10 +73,10 @@ var helper = {
         privileges: {},
         owner: global.config.target.user
     },
-    applyPatch: async function(patchFileInfo) {
+    applyPatch: async function (patchFileInfo) {
         await helper.__applyPatchFile(patchFileInfo);
     },
-    getLatestPatchApplied: async function() {
+    getLatestPatchApplied: async function () {
         let sql = `SELECT "version" FROM ${helper.__fullMigrationsHistoryTableName} ORDER BY "version" DESC LIMIT 1;`
         let result = await global.targetClient.query(sql);
         let lastVersionApplied = 0;
@@ -86,7 +86,7 @@ var helper = {
 
         return bigInt(lastVersionApplied);
     },
-    savePatch: async function() {
+    savePatch: async function () {
         await helper.__prepareMigrationsHistoryTable();
 
         let scriptsFolder = path.resolve(process.cwd(), global.config.options.outputDirectory);
@@ -102,7 +102,7 @@ var helper = {
         await helper.__updateRecordToHistoryTable(helper.__status.DONE, '', '', patchFileInfo.version);
         console.log(chalk.green(`The patch version={${patchFileInfo.version}} and name={${patchFileInfo.name}} has been saved in status 'DONE'.`));
     },
-    migrate: async function() {
+    migrate: async function () {
         await helper.__prepareMigrationsHistoryTable();
 
         let scriptsFolder = path.resolve(process.cwd(), global.config.options.outputDirectory);
@@ -173,8 +173,8 @@ var helper = {
 
         return patchInfo;
     },
-    __applyPatchFile: function(patchFileInfo) {
-        return new Promise(async(resolve, reject) => {
+    __applyPatchFile: function (patchFileInfo) {
+        return new Promise(async (resolve, reject) => {
             try {
 
                 let scriptPatch = patchFileInfo;
@@ -192,7 +192,7 @@ var helper = {
                 let readingBlock = false;
                 let patchError = null;
 
-                reader.on('line', function(line) {
+                reader.on('line', function (line) {
                     if (readingBlock) {
                         if (line.startsWith('--- END')) {
                             readingBlock = false;
@@ -218,7 +218,7 @@ var helper = {
                     }
                 });
 
-                reader.on('end', function() {
+                reader.on('end', function () {
                     if (patchError)
                         helper.__updateRecordToHistoryTable(helper.__status.ERROR, patchError, scriptPatch.command, scriptPatch.version)
                         .then(() => {
@@ -240,15 +240,15 @@ var helper = {
             }
         });
     },
-    __executePatchScript: async function(scriptPatch) {
+    __executePatchScript: async function (scriptPatch) {
         await helper.__updateRecordToHistoryTable(helper.__status.IN_PROGRESS, scriptPatch.message, scriptPatch.command, scriptPatch.version);
         await global.targetClient.query(scriptPatch.command);
     },
-    __updateRecordToHistoryTable: async function(status, message, script, patchVersion) {
+    __updateRecordToHistoryTable: async function (status, message, script, patchVersion) {
         let changes = {
             "status": status,
             "last_message": message,
-            "script": script.replace(/'/g, "''"),
+            "script": script,
             "applied_on": new Date()
         }
 
@@ -259,7 +259,7 @@ var helper = {
         let command = sql.generateUpdateTableRecordScript(helper.__fullMigrationsHistoryTableName, helper.__getFieldDataTypeIDs(), filterConditions, changes);
         await global.targetClient.query(command);
     },
-    __addRecordToHistoryTable: async function(patchVersion, patchName) {
+    __addRecordToHistoryTable: async function (patchVersion, patchName) {
         let changes = {
             "version": patchVersion,
             "name": patchName,
@@ -276,7 +276,7 @@ var helper = {
         let command = sql.generateMergeTableRecord(helper.__fullMigrationsHistoryTableName, helper.__getFieldDataTypeIDs(), changes, options);
         await global.targetClient.query(command);
     },
-    __getFieldDataTypeIDs: function() {
+    __getFieldDataTypeIDs: function () {
         let fields = [];
         for (let column in helper.__migrationsHistoryTableSchema.columns) {
             fields.push({
@@ -286,7 +286,7 @@ var helper = {
         }
         return fields;
     },
-    __prepareMigrationsHistoryTable: async function() {
+    __prepareMigrationsHistoryTable: async function () {
         if (!helper.__migrationsHistoryTableExists) {
 
             helper.__migrationsHistoryTableSchema.constraints[helper.__migrationsHistoryTableConstraintName] = {
