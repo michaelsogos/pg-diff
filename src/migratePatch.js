@@ -220,19 +220,19 @@ var helper = {
 
                 reader.on('end', function () {
                     if (patchError)
-                        helper.__updateRecordToHistoryTable(helper.__status.ERROR, patchError, scriptPatch.command, scriptPatch.version)
+                        helper.__updateRecordToHistoryTable(helper.__status.ERROR, patchError.toString(), scriptPatch.command, scriptPatch.version)
                         .then(() => {
                             reject(patchError);
                         }).catch((err) => {
                             reject(err);
-                        })
+                        });
                     else
                         helper.__updateRecordToHistoryTable(helper.__status.DONE, '', '', scriptPatch.version)
                         .then(() => {
                             resolve();
                         }).catch((err) => {
                             reject(err);
-                        })
+                        });
                 });
 
             } catch (e) {
