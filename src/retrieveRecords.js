@@ -51,7 +51,7 @@ var helper = {
             fields: null,
             rows: null
         };
-        let response = await client.query(`SELECT MD5(ROW(${config.keyFields.join(',')})::text) AS "rowHash", * FROM ${table}`);
+        let response = await client.query(`SELECT MD5(ROW(${config.keyFields.join(',')})::text) AS "rowHash", * FROM "${config.schema||'public'}"."${table}"`);
         result.fields = response.fields;
         result.rows = response.rows;
 
