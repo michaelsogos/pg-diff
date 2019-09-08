@@ -288,7 +288,7 @@ async function __runComparison() {
     //console.dir(scripts, { depth: null });
 
     if (global.config.options.dataCompare.enable) {
-        global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+        global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory, typname FROM pg_type`)).rows;
 
         log();
         log();
@@ -359,7 +359,7 @@ async function __saveSqlScript(scriptLines) {
 }
 
 async function __runMigration() {
-    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory, typname FROM pg_type`)).rows;
     const migratePatch = require('./src/migratePatch');
     await migratePatch.migrate();
 
@@ -367,7 +367,7 @@ async function __runMigration() {
 }
 
 async function __runSavePatch() {
-    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory FROM pg_type`)).rows;
+    global.dataTypes = (await sourceClient.query(`SELECT oid, typcategory, typname FROM pg_type`)).rows;
     const migratePatch = require('./src/migratePatch');
     await migratePatch.savePatch();
 

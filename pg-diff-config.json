@@ -3,14 +3,14 @@
         "source": {
             "host": "localhost",
             "port": 5432,
-            "database": "hukocash_dev",
+            "database": "pgdiff_test_dev",
             "user": "postgres",
             "password": "postgres"
         },
         "target": {
             "host": "localhost",
             "port": 5432,
-            "database": "hukocash",
+            "database": "pgdiff_test",
             "user": "postgres",
             "password": "postgres"
         },
@@ -27,19 +27,8 @@
             "dataCompare": {
                 "enable": true,
                 "tables": {
-                    "settings": {
-                        "keyFields": ["id_setting"],
-                        "schema": "public"
-                    },
-                    "tax_regulations": {
-                        "keyFields": ["id_tax_regulation"]
-                    },
-                    "vat_rates": {
-                        "keyFields": ["id_vat_rate"],
-                        "schema": "public"
-                    },
-                    "meta_card_properties": {
-                        "keyFields": ["id_meta_card_property"]
+                    "device": {
+                        "keyFields": ["id"]
                     }
                 }
             },
