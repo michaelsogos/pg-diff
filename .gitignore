@@ -70,3 +70,4 @@ typings/
 .vuepress/dist
 
 # Serverless directories
+/pg-diff-config_hpos.json
