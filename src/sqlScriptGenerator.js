@@ -418,11 +418,14 @@ var helper = {
             case "N": //NUMERIC
             case "T": //TIMESPAN
                 return value;
-            case "U": { //USER TYPE
+            case "U": {
+                //USER TYPE
                 switch (dataTypeName) {
                     case "json":
                         return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
                     case "xml":
+                        return `'${value.replace(/'/g, "''")}'`;
+                    case "uuid":
                         return `'${value.replace(/'/g, "''")}'`;
                     default:
                         throw new Error(`The data type '${dataTypeName}' is not implemented yet!`);
