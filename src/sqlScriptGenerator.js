@@ -422,6 +422,7 @@ var helper = {
                 //USER TYPE
                 switch (dataTypeName) {
                     case "json":
+                    case "jsonb":
                         return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
                     case "xml":
                         return `'${value.replace(/'/g, "''")}'`;
