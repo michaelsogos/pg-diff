@@ -62,12 +62,7 @@ var helper = {
             SELECT * FROM (
                 SELECT 
                     pg_get_serial_sequence(a.attrelid::regclass::name, a.attname) AS seqname,
-                    a.attname,
-                    CASE 
-                    	WHEN COALESCE(a.attidentity,'') = '' THEN 'SERIAL'
-                    	WHEN a.attidentity = 'a' THEN 'ALWAYS'
-                    	WHEN a.attidentity = 'd' THEN 'BY DEFAULT'
-                    END AS identitytype
+                    a.attname
                 FROM pg_attribute a
                 WHERE a.attrelid = '"${schema||'public'}"."${table}"'::regclass
                 AND a.attnum > 0
