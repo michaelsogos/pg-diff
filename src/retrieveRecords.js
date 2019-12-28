@@ -1,6 +1,6 @@
-const Exception = require('./error')
-const { Progress } = require('clui');
-const chalk = require('chalk');
+const Exception = require("./error");
+const { Progress } = require("clui");
+const chalk = require("chalk");
 
 var helper = {
     __progressBar: new Progress(20),
@@ -9,12 +9,12 @@ var helper = {
         this.__progressBarValue = value;
         process.stdout.clearLine();
         process.stdout.cursorTo(0);
-        process.stdout.write(this.__progressBar.update(this.__progressBarValue) + ' - ' + chalk.whiteBright(label));
+        process.stdout.write(this.__progressBar.update(this.__progressBarValue) + " - " + chalk.whiteBright(label));
     },
     collectTablesRecords: function(client, tables) {
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             try {
-                helper.__updateProgressbar(0.0, 'Collecting tables records ...');
+                helper.__updateProgressbar(0.0, "Collecting tables records ...");
                 const progressBarStep = 1.0 / Object.keys(tables).length;
 
                 var tableRecords = {};
@@ -24,7 +24,7 @@ var helper = {
                     tableRecords[table] = {
                         records: [],
                         exists: false,
-                        sequences: []
+                        sequences: [],
                     };
 
                     if (await helper.__checkIfTableExists(client, table, tables[table].schema)) {
@@ -34,7 +34,7 @@ var helper = {
                     }
                 }
 
-                helper.__updateProgressbar(1.0, 'Table records collected!');
+                helper.__updateProgressbar(1.0, "Table records collected!");
 
                 resolve(tableRecords);
             } catch (e) {
@@ -43,39 +43,46 @@ var helper = {
         });
     },
     __checkIfTableExists: async function(client, table, schema) {
-        let response = await client.query(`SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = '${table}' AND schemaname = '${schema||'public'}')`);
+        let response = await client.query(
+            `SELECT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = '${table}' AND schemaname = '${schema || "public"}')`,
+        );
         return response.rows[0].exists;
     },
     __collectTableRecords: async function(client, table, config) {
         let result = {
             fields: null,
-            rows: null
+            rows: null,
         };
-        let response = await client.query(`SELECT MD5(ROW(${config.keyFields.join(',')})::text) AS "rowHash", * FROM "${config.schema||'public'}"."${table}"`);
+        let response = await client.query(
+            `SELECT MD5(ROW(${config.keyFields.join(",")})::text) AS "rowHash", * FROM "${config.schema || "public"}"."${table}"`,
+        );
         result.fields = response.fields;
         result.rows = response.rows;
 
         return result;
     },
     __collectTableSequences: async function(client, table, schema) {
+        let identityFeature = `
+        CASE 
+            WHEN COALESCE(a.attidentity,'') = '' THEN 'SERIAL'
+            WHEN a.attidentity = 'a' THEN 'ALWAYS'
+            WHEN a.attidentity = 'd' THEN 'BY DEFAULT'
+        END AS identitytype`;
+
         let response = await client.query(`
             SELECT * FROM (
                 SELECT 
                     pg_get_serial_sequence(a.attrelid::regclass::name, a.attname) AS seqname,
                     a.attname,
-                    CASE 
-                    	WHEN COALESCE(a.attidentity,'') = '' THEN 'SERIAL'
-                    	WHEN a.attidentity = 'a' THEN 'ALWAYS'
-                    	WHEN a.attidentity = 'd' THEN 'BY DEFAULT'
-                    END AS identitytype
+                    ${client.version.major >= 10 ? identityFeature : "'SERIAL' AS identitytype"}
                 FROM pg_attribute a
-                WHERE a.attrelid = '"${schema||'public'}"."${table}"'::regclass
+                WHERE a.attrelid = '"${schema || "public"}"."${table}"'::regclass
                 AND a.attnum > 0
                 AND a.attisdropped = false
             ) T WHERE T.seqname IS NOT NULL`);
 
         return response.rows;
-    }
-}
+    },
+};
 
 module.exports = helper;
