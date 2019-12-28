@@ -29,6 +29,9 @@
                 "tables": {
                     "device": {
                         "keyFields": ["id"]
+                    },
+                    "special_fields": {
+                        "keyFields": ["id"]
                     }
                 }
             },

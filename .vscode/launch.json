@@ -7,11 +7,20 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Launch Compare",
             "program": "${workspaceFolder}\\main.js",
             "args": ["-c", "development", "test"],
             "protocol": "auto",
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Migration",
+            "program": "${workspaceFolder}\\main.js",
+            "args": ["-m", "development"],
+            "protocol": "auto",
+            "console": "integratedTerminal"
+        },
     ]
 }
