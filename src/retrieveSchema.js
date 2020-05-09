@@ -18,7 +18,7 @@ const query = {
     },
     "getTableColumns": function(tableName) {
         //TODO: Instead of using ::regclass casting, for better performance join with pg_class
-        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, ad.adsrc, ${helper.__checkServerCompatibility(10,0)?'a.attidentity':'NULL as attidentity'},
+        return `SELECT a.attname, a.attnotnull, t.typname, t.oid as typeid, t.typcategory, pg_get_expr(ad.adbin ,ad.adrelid ) as adsrc, ${helper.__checkServerCompatibility(10,0)?'a.attidentity':'NULL as attidentity'},
                 CASE 
                     WHEN t.typname = 'numeric' AND a.atttypmod > 0 THEN (a.atttypmod-4) >> 16
                     WHEN (t.typname = 'bpchar' or t.typname = 'varchar') AND a.atttypmod > 0 THEN a.atttypmod-4
