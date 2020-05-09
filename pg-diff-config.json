@@ -3,14 +3,14 @@
         "source": {
             "host": "localhost",
             "port": 5432,
-            "database": "pgdiff_test_dev",
+            "database": "hukocash_dev",
             "user": "postgres",
             "password": "postgres"
         },
         "target": {
             "host": "localhost",
             "port": 5432,
-            "database": "pgdiff_test",
+            "database": "hukocash",
             "user": "postgres",
             "password": "postgres"
         },
@@ -25,7 +25,7 @@
                 "dropMissingFunction": false
             },
             "dataCompare": {
-                "enable": true,
+                "enable": false,
                 "tables": {
                     "device": {
                         "keyFields": ["id"]
