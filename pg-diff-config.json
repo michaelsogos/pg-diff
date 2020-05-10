@@ -36,11 +36,12 @@
 						"tableKeyFields": ["id"]
 					}
 				]
-			},
-			"migrationOptions": {
-				"historyTableName": "migrations",
-				"historyTableSchema": "public"
 			}
+		},
+		"migrationOptions": {
+			"patchesDirectory": "db_migration",
+			"historyTableName": "migrations",
+			"historyTableSchema": "public"
 		}
 	},
 	"huko": {
@@ -281,11 +282,11 @@
 						"tableKeyFields": ["id_cloud"]
 					}
 				]
-			},
-			"migrationOptions": {
-				"historyTableName": "migrations",
-				"historyTableSchema": "public"
 			}
+		},
+		"migrationOptions": {
+			"historyTableName": "migrations",
+			"historyTableSchema": "public"
 		}
 	}
 }

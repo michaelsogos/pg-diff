@@ -28,8 +28,7 @@ Run()
  */
 function HandleError(e) {
 	log();
-	log(chalk.red(e));
-	log(chalk.magenta(e.stack));
+	log(chalk.red(e.stack));
 
 	switch (e.code) {
 		case "MODULE_NOT_FOUND":
@@ -55,6 +54,7 @@ async function Run() {
 			CLI.PrintHelp();
 			process.exit();
 		}
+		// falls through
 		case "-c":
 		case "--compare":
 			{
@@ -105,9 +105,16 @@ async function Run() {
 					process.stdout.cursorTo(0);
 					process.stdout.write(progressBar.update(percentage / 100) + " - " + chalk.whiteBright(message));
 				});
+
 				let patches = await pgDiff.migrate(replayMigration);
+				log();
 				if (patches.length <= 0) log(chalk.yellow("No new db patches have been found."));
-				else log(chalk.green("New db patches have been applied!"));
+				else {
+					log(chalk.green("Following db patches have been applied:"));
+					for (let patch of patches) {
+						log(chalk.green(`- Patch "${patch.name}" version "${patch.version}"`));
+					}
+				}
 			}
 			break;
 		case "-s":
@@ -118,12 +125,14 @@ async function Run() {
 					CLI.PrintHelp();
 					process.exit();
 				}
-				global.scriptName = args[2];
+
 				let config = ConfigHandler.LoadConfig(args[1]);
 				CLI.PrintOptions(config);
 
 				let pgDiff = new PgDiffApi(config);
-				//await pgDiff.savePatch()
+				await pgDiff.save(args[2]);
+				log();
+				log(chalk.green(`Patch ${args[2]} has been saved!`));
 			}
 			break;
 		default: {

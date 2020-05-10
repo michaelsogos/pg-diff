@@ -18,7 +18,16 @@
 			"request": "launch",
 			"name": "Launch Migration",
 			"program": "${workspaceFolder}\\main.js",
-			"args": ["-m", "${input:configName}"],
+			"args": ["${input:migrationType}", "${input:configName}"],
+			"protocol": "auto",
+			"console": "integratedTerminal"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch Save Patch",
+			"program": "${workspaceFolder}\\main.js",
+			"args": ["-s", "${input:configName}", "${input:patchName}"],
 			"protocol": "auto",
 			"console": "integratedTerminal"
 		}
@@ -29,6 +38,19 @@
 			"type": "promptString",
 			"default": "development",
 			"description": "The program name"
+		},
+		{
+			"id": "patchName",
+			"type": "promptString",
+			"default": "",
+			"description": "The patch name"
+		},
+		{
+			"type": "pickString",
+			"id": "migrationType",
+			"description": "The migration type",
+			"options": ["--migrate", "--migrate-replay"],
+			"default": "--migrate"
 		}
 	]
 }
