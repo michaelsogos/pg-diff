@@ -1,5 +1,14 @@
 # Changelog
 
+#### ver 2.0.0
+* Updated CHANGELOG
+* Added JS config for better intellisense in VSCode
+* Refactoring entire tool in order to integrate pg-diff-api
+* Added ESLING config
+* Improved logs messages
+* Fixed bug on config validation
+* Preparing first release 2.x
+
 #### ver 1.2.13
 * Fixed a bug to retrieve the COLUMN DEFAULT VALUE because pg_attrdef.adsrc is deprecated
 * Updated package "pg" to 8.1.0
