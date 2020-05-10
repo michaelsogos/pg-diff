@@ -1,41 +1,292 @@
 {
 	"development": {
-		"source": {
+		"sourceClient": {
 			"host": "localhost",
 			"port": 5432,
 			"database": "pgdiff_test",
 			"user": "postgres",
-			"password": "postgres"
+			"password": "postgres",
+			"applicationName": "pg-diff-cli"
 		},
-		"target": {
+		"targetClient": {
 			"host": "localhost",
 			"port": 5432,
 			"database": "pgdiff_test_2",
 			"user": "postgres",
-			"password": "postgres"
+			"password": "postgres",
+			"applicationName": "pg-diff-cli"
 		},
-		"options": {
+		"compareOptions": {
 			"author": "@MSO - Michael Sogos",
 			"outputDirectory": "db_migration",
+			"getAuthorFromGit": true,
 			"schemaCompare": {
 				"namespaces": ["public"],
-				"idempotentScript": true,
 				"dropMissingTable": false,
 				"dropMissingView": false,
-				"dropMissingFunction": false
+				"dropMissingFunction": false,
+				"roles": []
 			},
 			"dataCompare": {
 				"enable": true,
-				"tables": {
-					"test_generic": {
-						"keyFields": ["id"]
+				"tables": [
+					{
+						"tableName": "test_generic",
+						"tableSchema": "public",
+						"tableKeyFields": ["id"]
 					}
-				}
-			},
-			"migration": {
-				"tableSchema": "public",
-				"tableName": "migrations"
+				]
 			}
+		},
+		"migrationOptions": {
+			"patchesDirectory": "db_migration",
+			"historyTableName": "migrations",
+			"historyTableSchema": "public"
+		}
+	},
+	"huko": {
+		"sourceClient": {
+			"host": "localhost",
+			"port": 5432,
+			"database": "hukocash_dev",
+			"user": "postgres",
+			"password": "postgres",
+			"applicationName": "pg-diff-cli"
+		},
+		"targetClient": {
+			"host": "localhost",
+			"port": 5432,
+			"database": "hukocash",
+			"user": "postgres",
+			"password": "postgres",
+			"applicationName": "pg-diff-cli"
+		},
+		"compareOptions": {
+			"author": "@MSO - Michael Sogos",
+			"outputDirectory": "db_migration",
+			"getAuthorFromGit": true,
+			"schemaCompare": {
+				"namespaces": ["public"],
+				"dropMissingTable": false,
+				"dropMissingView": false,
+				"dropMissingFunction": false,
+				"roles": []
+			},
+			"dataCompare": {
+				"enable": true,
+				"tables": [
+					{
+						"tableName": "survey_answers",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_answer"]
+					},
+
+					{
+						"tableName": "survey_questions",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_question"]
+					},
+					{
+						"tableName": "survey_answers_generated_questions_bridges",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_answer_generated_questions_bridge"]
+					},
+					{
+						"tableName": "survey_filtered_answers_bridges",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_filtered_answer_bridge"]
+					},
+					{
+						"tableName": "settings",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_setting"]
+					},
+					{
+						"tableName": "vat_rates",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_vat_rate"]
+					},
+					{
+						"tableName": "meta_entity_types",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_entity_type"]
+					},
+					{
+						"tableName": "meta_filter_tags",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_filter_tag"]
+					},
+					{
+						"tableName": "meta_table_headers",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_table_header"]
+					},
+					{
+						"tableName": "meta_contact_searchable_fields",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_contact_searchable_fields"]
+					},
+					{
+						"tableName": "meta_card_properties",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_card_property"]
+					},
+					{
+						"tableName": "meta_side_bar",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_side_bar"]
+					},
+					{
+						"tableName": "reason_types",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_reason_type"]
+					},
+					{
+						"tableName": "voucher_reasons",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_voucher_reason"]
+					},
+					{
+						"tableName": "meta_receipt_columns",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_receipt_column"]
+					},
+					{
+						"tableName": "payment_methods",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_payment_method"]
+					},
+					{
+						"tableName": "payment_circuits",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_payment_circuit"]
+					},
+					{
+						"tableName": "vouchers_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_vouchers_status_reason"]
+					},
+					{
+						"tableName": "contacts_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_contacts_status_reason"]
+					},
+					{
+						"tableName": "products_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_products_status_reason"]
+					},
+					{
+						"tableName": "sale_document_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_sale_document_status_reason"]
+					},
+					{
+						"tableName": "pricelists_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_pricelists_status_reason"]
+					},
+					{
+						"tableName": "users_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_users_status_reason"]
+					},
+					{
+						"tableName": "users_types",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_user_type"]
+					},
+					{
+						"tableName": "promotions_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_promotions_status_reason"]
+					},
+					{
+						"tableName": "sale_orders_status_reason",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_sale_order_status_reason"]
+					},
+					{
+						"tableName": "privacies",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_privacy"]
+					},
+					{
+						"tableName": "translations",
+						"tableSchema": "public",
+						"tableKeyFields": ["guid_cloud"]
+					},
+					{
+						"tableName": "meta_fiscalprinter_mappings",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_fiscalprinter_mapping"]
+					},
+					{
+						"tableName": "message_severities",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_message_severity"]
+					},
+					{
+						"tableName": "meta_contact_information",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_contact_information"]
+					},
+					{
+						"tableName": "loyalty_card_types",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_loyalty_card_type"]
+					},
+					{
+						"tableName": "meta_discount_types",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_cloud"]
+					},
+					{
+						"tableName": "permissions",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_permission"]
+					},
+					{
+						"tableName": "meta_settings_categories",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_settings_category"]
+					},
+					{
+						"tableName": "meta_setting_options",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_setting_option"]
+					},
+					{
+						"tableName": "meta_bottom_bar",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_bottom_bar"]
+					},
+					{
+						"tableName": "meta_fiscalprinter_templates",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_fiscalprinter_template"]
+					},
+					{
+						"tableName": "meta_setting_meta_sources",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_meta_setting_meta_source"]
+					},
+					{
+						"tableName": "user_profiles",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_user_profile"]
+					},
+					{
+						"tableName": "meta_sale_document_types",
+						"tableSchema": "public",
+						"tableKeyFields": ["id_cloud"]
+					}
+				]
+			}
+		},
+		"migrationOptions": {
+			"historyTableName": "migrations",
+			"historyTableSchema": "public"
 		}
 	}
 }

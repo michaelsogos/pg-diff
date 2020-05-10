@@ -1,26 +1,56 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Compare",
-            "program": "${workspaceFolder}\\main.js",
-            "args": ["-c", "development", "test"],
-            "protocol": "auto",
-            "console": "integratedTerminal"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Migration",
-            "program": "${workspaceFolder}\\main.js",
-            "args": ["-m", "development"],
-            "protocol": "auto",
-            "console": "integratedTerminal"
-        },
-    ]
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch Compare",
+			"program": "${workspaceFolder}\\main.js",
+			"args": ["-c", "${input:configName}", "test"],
+			"protocol": "auto",
+			"console": "integratedTerminal"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch Migration",
+			"program": "${workspaceFolder}\\main.js",
+			"args": ["${input:migrationType}", "${input:configName}"],
+			"protocol": "auto",
+			"console": "integratedTerminal"
+		},
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch Save Patch",
+			"program": "${workspaceFolder}\\main.js",
+			"args": ["-s", "${input:configName}", "${input:patchName}"],
+			"protocol": "auto",
+			"console": "integratedTerminal"
+		}
+	],
+	"inputs": [
+		{
+			"id": "configName",
+			"type": "promptString",
+			"default": "development",
+			"description": "The program name"
+		},
+		{
+			"id": "patchName",
+			"type": "promptString",
+			"default": "",
+			"description": "The patch name"
+		},
+		{
+			"type": "pickString",
+			"id": "migrationType",
+			"description": "The migration type",
+			"options": ["--migrate", "--migrate-replay"],
+			"default": "--migrate"
+		}
+	]
 }
