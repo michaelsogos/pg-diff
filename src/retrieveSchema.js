@@ -10,7 +10,15 @@ const query = {
 		return `SELECT nspname, nspowner::regrole::name as owner FROM pg_namespace WHERE nspname IN ('${schemas.join("','")}')`;
 	},
 	getTables: function (schemas) {
-		return `SELECT schemaname, tablename, tableowner FROM pg_tables WHERE schemaname IN ('${schemas.join("','")}')`;
+		return `SELECT schemaname, tablename, tableowner 
+                FROM pg_tables t
+                INNER JOIN pg_class c on t.tablename::regclass = c.oid 
+                WHERE t.schemaname IN ('${schemas.join("','")}')
+                AND c.oid NOT IN (
+                    SELECT d.objid 
+                    FROM pg_depend d
+                    WHERE d.deptype = 'e'
+                )`;
 	},
 	getTableOptions: function (tableName) {
 		//TODO: Instead of using ::regnamespace casting, for better performance join with pg_namespace
@@ -62,7 +70,15 @@ const query = {
                 WHERE t.schemaname = '${schemaName}' and t.tablename='${tableName}'`;
 	},
 	getViews: function (schemas) {
-		return `SELECT schemaname, viewname, viewowner, definition FROM pg_views WHERE schemaname IN ('${schemas.join("','")}')`;
+		return `SELECT schemaname, viewname, viewowner, definition 
+                FROM pg_views v
+                INNER JOIN pg_class c on v.viewname::regclass = c.oid 
+                WHERE v.schemaname IN ('${schemas.join("','")}')
+                AND c.oid NOT IN (
+                    SELECT d.objid 
+                    FROM pg_depend d
+                    WHERE d.deptype = 'e'
+                )`;
 	},
 	getViewPrivileges: function (schemaName, viewName) {
 		return `SELECT v.schemaname, v.viewname, u.usename, 
@@ -109,7 +125,12 @@ const query = {
 		return `SELECT p.proname, n.nspname, pg_get_functiondef(p.oid) as definition, p.proowner::regrole::name as owner, oidvectortypes(proargtypes) as argtypes
                 FROM pg_proc p
                 INNER JOIN pg_namespace n ON n.oid = p.pronamespace
-                WHERE n.nspname IN ('${schemas.join("','")}') AND p.probin IS NULL`;
+                WHERE n.nspname IN ('${schemas.join("','")}') AND p.probin IS NULL AND p.prokind = 'f'
+                AND p."oid" NOT IN (
+                    SELECT d.objid 
+                    FROM pg_depend d
+                    WHERE d.deptype = 'e'
+                )`;
 	},
 	getFunctionPrivileges: function (schemaName, functionName, argTypes) {
 		//TODO: Instead of using ::regnamespace casting, for better performance join with pg_namespace
@@ -178,7 +199,7 @@ var helper = {
 					sequences: await helper.__retrieveSequences(client, schemas),
 				};
 
-				//TODO: Do we need to retrieve data types?
+				//TODO: Add a way to retrieve AGGREGATE and WINDOW functions
 				//TODO: Do we need to retrieve roles?
 				//TODO: Do we need to retieve special table like TEMPORARY and UNLOGGED? for sure not temporary, but UNLOGGED probably yes.
 				//TODO: Do we need to retrieve collation for both table and columns?
