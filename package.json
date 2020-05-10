@@ -1,49 +1,49 @@
 {
-    "name": "pg-diff-cli",
-    "version": "1.2.12",
-    "description": "PostgreSQL schema and data comparing tool",
-    "pgver": "9.6+",
-    "main": "main.js",
-    "preferGlobal": true,
-    "homepage": "https://michaelsogos.github.io/pg-diff/",
-    "bugs": {
-        "url": "https://github.com/michaelsogos/pg-diff/issues",
-        "email": "michael.sogos@gurustudioweb.it"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/michaelsogos/pg-diff"
-    },
-    "engines": {
-        "node": ">=8.11.1"
-    },
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "bin": {
-        "pg-diff": "main.js"
-    },
-    "keywords": [
-        "pg",
-        "pgsql",
-        "postgre",
-        "postgresql",
-        "sql",
-        "diff",
-        "schema",
-        "data",
-        "compare",
-        "tool",
-        "cli"
-    ],
-    "author": "Michael Sogos <michael.sogos@gurustudioweb.it> (https://github.com/michaelsogos)",
-    "license": "MIT",
-    "dependencies": {
-        "chalk": "^2.4.1",
-        "clui": "^0.3.6",
-        "deep-equal": "^2.0.1",
-        "figlet": "^1.2.0",
-        "line-by-line": "^0.1.6",
-        "pg": "^7.4.3"
-    }
+	"name": "pg-diff-cli",
+	"version": "1.2.13",
+	"description": "PostgreSQL schema and data comparing tool",
+	"pgver": "9.6+",
+	"main": "main.js",
+	"preferGlobal": true,
+	"homepage": "https://michaelsogos.github.io/pg-diff/",
+	"bugs": {
+		"url": "https://github.com/michaelsogos/pg-diff/issues",
+		"email": "michael.sogos@gurustudioweb.it"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/michaelsogos/pg-diff"
+	},
+	"engines": {
+		"node": ">=8.11.1"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"bin": {
+		"pg-diff": "main.js"
+	},
+	"keywords": [
+		"pg",
+		"pgsql",
+		"postgre",
+		"postgresql",
+		"sql",
+		"diff",
+		"schema",
+		"data",
+		"compare",
+		"tool",
+		"cli"
+	],
+	"author": "Michael Sogos <michael.sogos@gurustudioweb.it> (https://github.com/michaelsogos)",
+	"license": "MIT",
+	"dependencies": {
+		"chalk": "2.4.1",
+		"clui": "0.3.6",
+		"deep-equal": "2.0.1",
+		"figlet": "1.2.0",
+		"line-by-line": "0.1.6",
+		"pg": "8.1.0"
+	}
 }
