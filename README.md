@@ -45,6 +45,7 @@ npm install -g pg-diff-cli
 ```
 
 Create a config file in your project folder like the below example:
+
 ```VALID ONLY FOR 1.x```
 ```javascript
 {
