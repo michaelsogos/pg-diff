@@ -174,6 +174,7 @@ pg-diff -c development my-first-patch
 
 ##### Migrating a patch
 Since version ```2.0.1```
+
 Call library with options **-mt** passing the **configuration name** to automatically apply missing patches on **target client**.
 Call library with options **-ms** passing the **configuration name** to automatically apply missing patches on **source client**.
 Migration strategy in any case will **ignore any succesfully script executed**.  
