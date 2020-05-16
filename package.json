@@ -42,6 +42,6 @@
 		"chalk": "2.4.1",
 		"clui": "0.3.6",
 		"figlet": "1.2.0",
-		"pg-diff-api": "1.0.6"
+		"pg-diff-api": "1.0.7"
 	}
 }
