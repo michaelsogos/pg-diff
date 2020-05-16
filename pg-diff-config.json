@@ -22,9 +22,10 @@
 			"getAuthorFromGit": true,
 			"schemaCompare": {
 				"namespaces": ["public"],
-				"dropMissingTable": false,
-				"dropMissingView": false,
-				"dropMissingFunction": false,
+				"dropMissingTable": true,
+				"dropMissingView": true,
+				"dropMissingFunction": true,
+				"dropMissingAggregate": true,
 				"roles": []
 			},
 			"dataCompare": {
