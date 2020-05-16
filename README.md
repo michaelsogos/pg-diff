@@ -164,16 +164,16 @@ pg-diff -h
 
 ### Command line options
 Since version ```1.1.0``` a lot of improvements and new features has been added to this library; following a complete list and example:
-
-
+  
+  
 #### Creating a patch
 Call library with options **-c** passing the **configuration name** and a **name for patch**.  
 It will create the sql patch file under configured output folder.  
 ```bash
 pg-diff -c development my-first-patch
 ```
-
-
+  
+  
 #### Migrating a patch
 Since version ```2.0.1```  
 Call library with options **-mt** passing the **configuration name** to automatically apply missing patches on **target client**.  
@@ -182,8 +182,8 @@ Migration strategy in any case will **ignore any succesfully script executed**.
 ```bash
 pg-diff -mt development
 ```
-
-
+  
+  
 #### Registering patch without execute it
 Call library with option **-s** passing the **configuration name** and the **patch file name**.  
 Since version ```2.0.0``` the **sourceClient** will be used to save patch into "migration history" table, in order to avoid useless configuration duplication.
@@ -191,12 +191,13 @@ It will register the patch in status DONE on migration history table.
 ```bash
 pg-diff -s development 20180923221043142_my-patch.sql
 ```
-
-
+  
+  
 ### Team workflow
 Of course this library can be used by your-self only, but it has been created with TEAM WORK needs in mind.  
-The best practice is to work with 2 different db (e.g.: **app_db_dev** and **app_db**); in first database we make all potential dangerous changes (it is a safe practice because this database will never be used actively), then with pg-diff-cli tool we make a comparison with the second database (it should never be changed manually), then in the end we will execute (migrate) generated patch to the second database. Et voilà, in few steps we made safe patches for our production environment that can safely shared with our team members.
-
+The best practice is to work with 2 different db (e.g.: **app_db_dev** and **app_db**).  
+In first database we make all potential dangerous changes (it is a safe practice because this database will never be used actively), then with pg-diff-cli tool we make a comparison with the second database (it should never be changed manually), then in the end we will execute (migrate) generated patch to the second database. Et voilà, in few steps we made safe patches for our production environment that can safely shared with our team members.  
+  
 Since version ```2.0.0``` the suggested workflow is:
 1. Create two local database  
     a. first db where make changes on both schema and data; suppose that db name is **app_db_dev**  
@@ -217,8 +218,9 @@ Since version ```2.0.0``` the suggested workflow is:
 **WARNING:  
 When your project is going to use also comparison feature for data records (not just schema), is possible that different team members are going to add new records in pretty same time.  
 To avoid conflict or data-loss we suggest to inform team members about the changes before commiting; in this way other team members can still create their own new records using a different value for KEY FIELDS.**  
-
-
+  
+  
 ### Problems or missing feature?  
 As any other software, this library can be improved, so please for any question don't exitate to open an issue on github [here](https://github.com/michaelsogos/pg-diff/issues).  
-
+  
+  
