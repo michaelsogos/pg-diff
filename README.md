@@ -44,7 +44,8 @@ Install the library with:
 npm install -g pg-diff-cli
 ```
 
-Create a config file in your project folder like the below example:  
+Create a config file in your project folder like the below example:
+```VALID ONLY FOR 1.x```
 ```javascript
 {
     "development": { //At least one configuration must exists, but you can have many
@@ -93,6 +94,62 @@ Create a config file in your project folder like the below example:
 }
 ```
 
+```VALID ONLY FOR 2.x```
+```javascript
+{
+    "development": { //At least one configuration must exists, but you can have many
+        "sourceClient": { //Specify here connection to the source database
+            "host": "localhost", //Ip address or hostname
+            "port": 5432, //Server port
+            "database": "my-source-db", //Database name
+            "user": "postgres", //Username to access to database, better to have admin rights to access to pg_catalog schema
+            "password": "put-password-here", //Password to access to database
+            "applicationName": "pg-diff-cli" //Custom string to better identify application session connected to PostgreSQL server
+        },
+        "targetClient": { //Specify here connection to the target database
+            "host": "localhost",
+            "port": 5432,
+            "database": "my-target-db",
+            "user": "postgres",
+            "password": "put-password-here",
+            "applicationName": "pg-diff-cli"
+        },
+        "compareOptions": { //This section is mandatory
+            "author": "your-name-or-nickname-or-anything-else", //This option is mandatory but the string can be empty
+            "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
+            "getAuthorFromGit": false, //If true will ignore "author" and try to get the it from your GIT CONFIG (firstly from local project config, then from global config)
+            "schemaCompare": {
+                "namespaces": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared                   
+                "dropMissingTable": false, //When true will detect tables that exists only on target database, in case a DROP statement will be generated
+                "dropMissingView": false, //When true will detect view and materialized view that exists only on target database, in case a DROP statement will be generated
+                "dropMissingFunction": false, //When true will detect function that exists only on target database, in case a DROP statement will be generated
+                "roles": [] //List of comma-separated role names for which retrieve GRANT and REVOKE permissions to database objects. If empty the patch will not contains any permission statement
+            },
+            "dataCompare": { //This option is mandatory
+                "enable": true, //False to disable record comparing
+                "tables": [ //This option is mandatory in case the above "enable" is true
+                    {
+                        "tableName": "my-table-name", //The name of the table without schema
+                        "tableSchema": "public or any-other-namespace", //The name of the schema where table exists, if not specified "public" will be used instead
+                        "tableKeyFields": ["list-of-key-fields-name"], //The comma-separated list of fields name that can be used to identify rows uniquely
+                    },
+                    {
+                        "tableName": "my-other-table-name",
+                        "tableSchema": "public or any-other-namespace",
+                        "tableKeyFields": ["list-of-key-fields-name"],
+                    }
+                ]
+            }   
+        },
+		"migrationOptions": { //This section is mandatory only if you want to use our migration strategy
+			"patchesDirectory": "db_migration", //Folder where to retrieve sql script patches
+			"historyTableName": "migrations", //This is the table name where to save "migrations history"
+			"historyTableSchema": "public" //This is the schema name where to create a "migrations history" table
+		}        
+    }
+}
+```
+
 Run the tool typing on a shell:  
 ```bash
 pg-diff -c development initial-script
@@ -115,14 +172,17 @@ pg-diff -c development my-first-patch
 ```
 
 ##### Migrating a patch
-Call library with options **-m** ( or **-mr** to re-execute ignoring latest execution status) passing the **configuration name**, automatically all not yet applied script will be executed.  
-Migration strategy in any case will **ignore any succesfully script executed, even with -mr option**.  
+Since version ```2.0.1```
+Call library with options **-mt** passing the **configuration name** to automatically apply missing patches on **target client**.
+Call library with options **-ms** passing the **configuration name** to automatically apply missing patches on **source client**.
+Migration strategy in any case will **ignore any succesfully script executed**.  
 ```bash
-pg-diff -m development
+pg-diff -mt development
 ```
 
 ##### Registering patch without execute it
-Call library with option **-s** passing the **configuration name** and the **patch file name**.  
+Call library with option **-s** passing the **configuration name** and the **patch file name**.
+Since version ```2.0.0``` the **sourceClient** will be used to save patch into "migration history" table, in order to avoid useless configuration duplication.
 It will register the patch in status DONE on migration history table.  
 ```bash
 pg-diff -s development 20180923221043142_my-patch.sql
@@ -130,22 +190,24 @@ pg-diff -s development 20180923221043142_my-patch.sql
 
 ### Team workflow
 Of course this library can be used by your-self only, but it has been created with TEAM WORK needs in mind.  
-The suggested workflow is:
+The best practice is to work with 2 different db (e.g.: **app_db_dev** and **app_db**); in first database we make all potential dangerous changes (it is a safe practice because this database will never be used actively), then with pg-diff-cli tool we make a comparison with the second database (it should never be changed manually), then in the end we will execute (migrate) generated patch to the second database. Et voilà, in few steps we made safe patches for our production environment that can safely shared with our team members.
+
+Since version ```2.0.0``` the suggested workflow is:
 1. Create two local database  
-    a. first db where make changes on both schema and data; suppose that db name is **appdb_dev**  
-    b. second db which is the application database where to apply our created patches; suppose that db name is **appdb**  
-2. Change the config file to having two configuration  
-    a. the first one is used to compare and migrate from **SOURCE**, in our case it is **appdb_dev**, to **TARGET**, in our case it is **appdb**  
-    b. the second one is used to just migrate and keep updated our **TARGET** db, that is the opposite from above configuration, in our case it is **appdb_dev**  
-3. Make changes on **appdb_dev** and run comparison using **first configuration**  
+    a. first db where make changes on both schema and data; suppose that db name is **app_db_dev**  
+    b. second db which is the application database where to apply our created patches; suppose that db name is **app_db**  
+2. Make the config file to have at least one configuration  
+    a. In "sourceClient" configure the **SOURCE** database, in our case it is **app_db_dev**
+    b. In "targetClient" configure the **TARGET** database, in our case it is **app_db**  
+3. Make changes on **app_db_dev** and run comparison
 4. Check and review the generated sql script patch file  
-5. Migrate the generated patch script to db **appdb** using again the **first configuration**  
-6. Register the generated patch script to db **appdb_dev**, this time using the **second configuration**; it is needed to avoid execution of created patch files on db **appdb_dev** generated by you at point *3.* It will be usefull when later we will try to keep updated our "db for changes"  
+5. Migrate the generated patch script to db **app_db** using **-mt** option 
+6. Register (save) the generated patch script to db **app_db_dev**, it is needed to avoid later execution of created patch files on db **app_db_dev** generated by you at point *3.* 
 7. Commit (and push if you use GIT) your patch file within your code changes  
 8. Checkout latest changes from your code versioning repository  
-9. Supposing that other team members made changes on db commiting their generated patches, we need to keep up-to-date our "db for changes":  
-    a. Run a migration to db **appdb_dev** using the **second configuration**  
-    b. Run again a migration to db **appdb** using the **first configuration**  
+9. Supposing that other team members made changes on db commiting their generated patches, we need to keep up-to-date our **app_db_dev**:  
+    a. Run a migration to db **app_db_dev** using the **-ms** option
+    b. Run again a migration to db **app_db** using the **-mt** option
     
 **WARNING:  
 When your project is going to use also comparison feature for data records (not just schema), is possible that different team members are going to add new records in pretty same time.  
