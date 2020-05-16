@@ -124,6 +124,7 @@ Create a config file in your project folder like the below example:
                 "dropMissingTable": false, //When true will detect tables that exists only on target database, in case a DROP statement will be generated
                 "dropMissingView": false, //When true will detect view and materialized view that exists only on target database, in case a DROP statement will be generated
                 "dropMissingFunction": false, //When true will detect function that exists only on target database, in case a DROP statement will be generated
+                "dropMissingAggregate": false, //When true will detect aggregate that exists only on target database, in case a DROP statement will be generated
                 "roles": [] //List of comma-separated role names for which retrieve GRANT and REVOKE permissions to database objects. If empty the patch will not contains any permission statement
             },
             "dataCompare": { //This option is mandatory
