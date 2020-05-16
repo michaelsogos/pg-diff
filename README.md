@@ -165,24 +165,23 @@ pg-diff -h
 ### Command line options
 Since version ```1.1.0``` a lot of improvements and new features has been added to this library; following a complete list and example:
 
-##### Creating a patch
+#### Creating a patch
 Call library with options **-c** passing the **configuration name** and a **name for patch**.  
 It will create the sql patch file under configured output folder.  
 ```bash
 pg-diff -c development my-first-patch
 ```
 
-##### Migrating a patch
-Since version ```2.0.1```
-
-Call library with options **-mt** passing the **configuration name** to automatically apply missing patches on **target client**.
-Call library with options **-ms** passing the **configuration name** to automatically apply missing patches on **source client**.
+#### Migrating a patch
+Since version ```2.0.1```  
+Call library with options **-mt** passing the **configuration name** to automatically apply missing patches on **target client**.  
+Call library with options **-ms** passing the **configuration name** to automatically apply missing patches on **source client**.  
 Migration strategy in any case will **ignore any succesfully script executed**.  
 ```bash
 pg-diff -mt development
 ```
 
-##### Registering patch without execute it
+#### Registering patch without execute it
 Call library with option **-s** passing the **configuration name** and the **patch file name**.
 Since version ```2.0.0``` the **sourceClient** will be used to save patch into "migration history" table, in order to avoid useless configuration duplication.
 It will register the patch in status DONE on migration history table.  
