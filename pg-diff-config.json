@@ -28,7 +28,7 @@
 				"roles": []
 			},
 			"dataCompare": {
-				"enable": true,
+				"enable": false,
 				"tables": [
 					{
 						"tableName": "test_generic",

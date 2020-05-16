@@ -77,13 +77,14 @@ async function Run() {
 				});
 				let scriptFilePath = await pgDiff.compare(args[2]);
 				log();
-				log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
+				if (scriptFilePath) log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
+				else log(chalk.yellow("No patch has been created because no differences have been found!"));
 			}
 			break;
-		case "-m":
-		case "--migrate":
-		case "-mr":
-		case "--migrate-replay":
+		case "-ms":
+		case "--migrate-to-source":
+		case "-mt":
+		case "--migrate-to-target":
 			{
 				if (args.length != 2) {
 					log(chalk.red("Missing arguments!"));
@@ -91,8 +92,8 @@ async function Run() {
 					process.exit();
 				}
 
-				let replayMigration = false;
-				if (args[0] == "-mr" || args[0] == "--migrate-replay") replayMigration = true;
+				let toSourceClient = false;
+				if (args[0] == "-mt" || args[0] == "--migrate-to-target") toSourceClient = true;
 
 				let config = ConfigHandler.LoadConfig(args[1]);
 				ConfigHandler.ValidateMigrationConfig(config);
@@ -106,7 +107,7 @@ async function Run() {
 					process.stdout.write(progressBar.update(percentage / 100) + " - " + chalk.whiteBright(message));
 				});
 
-				let patches = await pgDiff.migrate(replayMigration);
+				let patches = await pgDiff.migrate(true, toSourceClient);
 				log();
 				if (patches.length <= 0) log(chalk.yellow("No new db patches have been found."));
 				else {

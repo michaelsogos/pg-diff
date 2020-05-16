@@ -34,13 +34,20 @@ class ConfigHandler {
 		if (!config.compareOptions.schemaCompare)
 			throw new Error('The configuration section "compareOptions" must contains property "schemaCompare {object}" !');
 
-		if (!config.compareOptions.schemaCompare.namespaces)
+		if (
+			!config.compareOptions.schemaCompare.namespaces ||
+			!Array.isArray(config.compareOptions.schemaCompare.namespaces) ||
+			config.compareOptions.schemaCompare.namespaces.length <= 0
+		)
 			throw new Error('The configuration section "compareOptions.schemaCompare" must contains property "namespaces (array of strings}" !');
+
+		if (!config.compareOptions.schemaCompare.roles || !Array.isArray(config.compareOptions.schemaCompare.roles))
+			throw new Error('The configuration section "compareOptions.schemaCompare" must contains property "roles (array of strings}" !');
 
 		if (!config.compareOptions.dataCompare)
 			throw new Error('The configuration section "optcompareOptionsions" must contains property "dataCompare (object}" !');
 
-		if (!config.compareOptions.dataCompare.enable)
+		if (!Object.prototype.hasOwnProperty.call(config.compareOptions.dataCompare, "enable"))
 			throw new Error('The configuration section "compareOptions.dataCompare" must contains property "enable (boolean}" !');
 	}
 

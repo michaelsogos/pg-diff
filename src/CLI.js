@@ -29,13 +29,13 @@ class CLI {
 		log(chalk.magenta("===   pg-diff-cli   HELP   ==="));
 		log(chalk.magenta("=============================="));
 		log();
-		log(chalk.gray("OPTION                 \t\tDESCRIPTION"));
-		log(chalk.green("-h,  --help           \t\t") + chalk.blue("To show this help."));
-		log(chalk.green("-c,  --compare        \t\t") + chalk.blue("To run compare and generate a patch file."));
-		log(chalk.green("-m,  --migrate        \t\t") + chalk.blue("To run migration applying all missing patch files."));
-		log(chalk.green("-mr, --migrate-replay \t\t") + chalk.blue("To run migration applying all missing or failed or stuck patch files."));
+		log(chalk.gray("OPTION                 		\t\tDESCRIPTION"));
+		log(chalk.green("-h,  --help           		\t\t") + chalk.blue("To show this help."));
+		log(chalk.green("-c,  --compare        		\t\t") + chalk.blue("To run compare and generate a patch file."));
+		log(chalk.green("-ms,  --migrate-to-source  \t\t") + chalk.blue("To run migration applying all missing patch files to SOURCE CLIENT."));
+		log(chalk.green("-mt,  --migrate-to-target  \t\t") + chalk.blue("To run migration applying all missing patch files to TARGET CLIENT."));
 		log(
-			chalk.green("-s, --save            \t\t") + chalk.blue("To save\\register patch on migration history table without executing the script.")
+			chalk.green("-s, --save            		\t\t") + chalk.blue("To save\\register patch on migration history table without executing the script.")
 		);
 		log();
 		log();
