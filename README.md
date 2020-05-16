@@ -142,11 +142,11 @@ Create a config file in your project folder like the below example:
                 ]
             }   
         },
-				"migrationOptions": { //This section is mandatory only if you want to use our migration strategy
-					"patchesDirectory": "db_migration", //Folder where to retrieve sql script patches
-					"historyTableName": "migrations", //This is the table name where to save "migrations history"
-					"historyTableSchema": "public" //This is the schema name where to create a "migrations history" table
-				}        
+        "migrationOptions": { //This section is mandatory only if you want to use our migration strategy
+            "patchesDirectory": "db_migration", //Folder where to retrieve sql script patches
+            "historyTableName": "migrations", //This is the table name where to save "migrations history"
+            "historyTableSchema": "public" //This is the schema name where to create a "migrations history" table
+        }        
     }
 }
 ```
