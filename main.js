@@ -4,6 +4,7 @@ const ConfigHandler = require("./src/ConfigHandler").ConfigHandler;
 const PgDiffApi = require("pg-diff-api").PgDiff;
 const chalk = require("chalk");
 const { Progress } = require("clui");
+const stdout = require("readline");
 const pjson = require("./package.json");
 const log = console.log;
 
@@ -71,8 +72,8 @@ async function Run() {
 				let progressBar = new Progress(20);
 				let pgDiff = new PgDiffApi(config);
 				pgDiff.events.on("compare", function (message, percentage) {
-					process.stdout.clearLine();
-					process.stdout.cursorTo(0);
+					stdout.clearLine(process.stdout);
+					stdout.cursorTo(process.stdout, 0);
 					process.stdout.write(progressBar.update(percentage / 100) + " - " + chalk.whiteBright(message));
 				});
 				let scriptFilePath = await pgDiff.compare(args[2]);
@@ -102,8 +103,8 @@ async function Run() {
 				let progressBar = new Progress(20);
 				let pgDiff = new PgDiffApi(config);
 				pgDiff.events.on("migrate", function (message, percentage) {
-					process.stdout.clearLine();
-					process.stdout.cursorTo(0);
+					stdout.clearLine(process.stdout);
+					stdout.cursorTo(process.stdout, 0);
 					process.stdout.write(progressBar.update(percentage / 100) + " - " + chalk.whiteBright(message));
 				});
 
