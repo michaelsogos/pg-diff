@@ -49,8 +49,8 @@
 			"type": "pickString",
 			"id": "migrationType",
 			"description": "The migration type",
-			"options": ["--migrate", "--migrate-replay"],
-			"default": "--migrate"
+			"options": ["--migrate-to-target", "--migrate-to-source"],
+			"default": "--migrate-to-target"
 		}
 	]
 }

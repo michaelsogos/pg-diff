@@ -93,7 +93,7 @@ async function Run() {
 				}
 
 				let toSourceClient = false;
-				if (args[0] == "-mt" || args[0] == "--migrate-to-target") toSourceClient = true;
+				if (args[0] == "-ms" || args[0] == "--migrate-to-source") toSourceClient = true;
 
 				let config = ConfigHandler.LoadConfig(args[1]);
 				ConfigHandler.ValidateMigrationConfig(config);
