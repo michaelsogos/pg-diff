@@ -29,22 +29,23 @@ class CLI {
 		log(chalk.magenta("===   pg-diff-cli   HELP   ==="));
 		log(chalk.magenta("=============================="));
 		log();
-		log(chalk.gray("OPTION                 		\t\tDESCRIPTION"));
-		log(chalk.green("-h,  --help           		\t\t") + chalk.blue("To show this help."));
-		log(chalk.green("-c,  --compare        		\t\t") + chalk.blue("To run compare and generate a patch file."));
-		log(chalk.green("-ms,  --migrate-to-source  \t\t") + chalk.blue("To run migration applying all missing patch files to SOURCE CLIENT."));
-		log(chalk.green("-mt,  --migrate-to-target  \t\t") + chalk.blue("To run migration applying all missing patch files to TARGET CLIENT."));
+		log(chalk.gray("OPTION                      \t\tDESCRIPTION"));
+		log(chalk.green("-h,  --help                \t\t") + chalk.blue("To show this help."));
+		log(chalk.green("-c,  --compare             \t\t") + chalk.blue("To run compare and generate a patch file."));
+		log(chalk.green("-ms, --migrate-to-source   \t\t") + chalk.blue("To run migration applying all missing patch files to SOURCE CLIENT."));
+		log(chalk.green("-mt, --migrate-to-target   \t\t") + chalk.blue("To run migration applying all missing patch files to TARGET CLIENT."));
 		log(
-			chalk.green("-s, --save            		\t\t") + chalk.blue("To save\\register patch on migration history table without executing the script.")
+			chalk.green("-s,  --save                \t\t") +
+				chalk.blue("To save\\register patch on migration history table without executing the script.")
 		);
 		log();
 		log();
 		log(chalk.gray(" TO COMPARE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("configuration-name script-name"));
 		log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-c ") + chalk.cyan("development my-script"));
 		log();
-		log(chalk.gray(" TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("[-m | -mr] ") + chalk.cyan("configuration-name"));
-		log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-m ") + chalk.cyan("development"));
-		log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mr ") + chalk.cyan("development"));
+		log(chalk.gray(" TO MIGRATE: ") + chalk.yellow("pg-diff ") + chalk.gray("[-ms | -mt] ") + chalk.cyan("configuration-name"));
+		log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-ms ") + chalk.cyan("development"));
+		log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-mt ") + chalk.cyan("development"));
 		log();
 		log(chalk.gray("TO REGISTER: ") + chalk.yellow("pg-diff ") + chalk.gray("-s ") + chalk.cyan("configuration-name patch-file-name"));
 		log(chalk.gray("    EXAMPLE: ") + chalk.yellow("pg-diff ") + chalk.gray("-s ") + chalk.cyan("development 20182808103040999_my-script.sql"));
