@@ -3,7 +3,7 @@
 		"sourceClient": {
 			"host": "localhost",
 			"port": 5432,
-			"database": "pgdiff_test",
+			"database": "pgdiff_test_2",
 			"user": "postgres",
 			"password": "postgres",
 			"applicationName": "pg-diff-cli"
@@ -11,7 +11,7 @@
 		"targetClient": {
 			"host": "localhost",
 			"port": 5432,
-			"database": "pgdiff_test_2",
+			"database": "pgdiff_test",
 			"user": "postgres",
 			"password": "postgres",
 			"applicationName": "pg-diff-cli"
@@ -21,7 +21,7 @@
 			"outputDirectory": "db_migration",
 			"getAuthorFromGit": true,
 			"schemaCompare": {
-				"namespaces": ["public"],
+				"namespaces": ["public","schema_one"],
 				"dropMissingTable": true,
 				"dropMissingView": true,
 				"dropMissingFunction": true,
