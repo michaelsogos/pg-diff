@@ -7,6 +7,8 @@ const { Progress } = require("clui");
 const stdout = require("readline");
 const pjson = require("./package.json");
 const log = console.log;
+const actions = require("./src/enums/actions");
+const options = require("./src/enums/options");
 
 //pgTypes.setTypeParser(1114, value => new Date(Date.parse(`${value}+0000`)));
 
@@ -30,11 +32,26 @@ Run()
 function HandleError(e) {
 	log();
 	log(chalk.red(e.stack));
+	process.stderr.write(e.message);
+	process.stderr.write("\n");
 
 	switch (e.code) {
 		case "MODULE_NOT_FOUND":
-			log(chalk.red('Please create the configuration file "pg-diff-config.json" in the same folder where you run pg-diff!'));
+			log(chalk.red('Please create the configuration file "pg-diff-config.json" in the same folder where you run pg-diff or specify config file full path with option parameter "-f"!'));
 			break;
+	}
+}
+
+/**
+ *
+ * @param {String} lastAction
+ * @param {String} currentAction
+ */
+function CheckDoubleActionError(lastAction, currentAction) {
+	if (lastAction) {
+		HandleError(new Error(`Too many execution options specified! "${lastAction}" and "${currentAction}" cannot co-exists.`));
+		CLI.PrintHelp();
+		process.exit();
 	}
 }
 
@@ -44,29 +61,103 @@ function HandleError(e) {
 async function Run() {
 	var args = process.argv.slice(2);
 	if (args.length <= 0) {
-		log(chalk.red("Missing arguments!"));
+		HandleError(new Error("Missing arguments!"));
+	}
+
+	let action = null;
+	let lastOption = null;
+	let breakLoop = false;
+	/** @type {Map<String,String[]>} */
+	let optionParams = new Map();
+	let parsingOptionParams = false;
+
+	for (const arg of args) {
+		if (arg.startsWith("-")) {
+			parsingOptionParams = true;
+			breakLoop = false;
+			lastOption = null;
+
+			switch (arg) {
+				case "-h":
+				case "--help":
+					CheckDoubleActionError(action, arg);
+					action = actions.HELP;
+					breakLoop = true;
+					parsingOptionParams = false;
+					break;
+				case "-c":
+				case "--compare":
+					CheckDoubleActionError(action, arg);
+					action = actions.COMPARE;
+					lastOption = actions.COMPARE;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
+				case "-ms":
+				case "--migrate-to-source":
+					CheckDoubleActionError(action, arg);
+					action = actions.MIGRATE_TO_SOURCE;
+					lastOption = actions.MIGRATE_TO_SOURCE;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
+				case "-mt":
+				case "--migrate-to-target":
+					CheckDoubleActionError(action, arg);
+					action = actions.MIGRATE_TO_TARGET;
+					lastOption = actions.MIGRATE_TO_TARGET;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
+				case "-s":
+				case "--save":
+					CheckDoubleActionError(action, arg);
+					action = actions.SAVE;
+					lastOption = actions.SAVE;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
+				case "-p":
+				case "--patch-folder":
+					lastOption = options.PATCH_FOLDER;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
+				case "-f":
+				case "--config-file":
+					lastOption = options.CONFIG_FILEPATH;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
+				default:
+					HandleError(new Error(`Invalid parameter "${arg}"!`));
+					CLI.PrintHelp();
+					process.exit();
+			}
+		} else if (parsingOptionParams) {
+			optionParams.get(lastOption).push(arg);
+		}
+
+		if (breakLoop) break;
+	}
+
+	if (!action) {
+		HandleError(new Error(`Missing execution options! Please specify one between -c, -ms, -mt, -s execution option.`));
 		CLI.PrintHelp();
 		process.exit();
 	}
 
-	switch (args[0]) {
-		case "-h":
-		case "--help": {
+	switch (action) {
+		case actions.HELP: {
 			CLI.PrintHelp();
 			process.exit();
+			break;
 		}
-		// falls through
-		case "-c":
-		case "--compare":
+		case actions.COMPARE:
 			{
-				if (args.length != 3) {
-					log(chalk.red("Missing arguments!"));
+				if (!optionParams.has(actions.COMPARE) || optionParams.get(actions.COMPARE).length != 2) {
+					HandleError(new Error("Missing or invalid arguments for option 'COMPARE'!"));
 					CLI.PrintHelp();
 					process.exit();
 				}
 
-				let config = ConfigHandler.LoadConfig(args[1]);
-				ConfigHandler.ValidateCompareConfig(config);
+				const params = optionParams.get(actions.COMPARE);
+				let config = ConfigHandler.LoadConfig(params[0], ConfigHandler.GetConfigFilePath(optionParams));
+				ConfigHandler.ValidateCompareConfig(optionParams, config);
 				CLI.PrintOptions(config);
 
 				let progressBar = new Progress(20);
@@ -76,28 +167,41 @@ async function Run() {
 					stdout.cursorTo(process.stdout, 0);
 					process.stdout.write(progressBar.update(percentage / 100) + " - " + chalk.whiteBright(message));
 				});
-				let scriptFilePath = await pgDiff.compare(args[2]);
+				let scriptFilePath = await pgDiff.compare(params[1]);
 				log();
 				if (scriptFilePath) log(chalk.whiteBright("SQL patch file has been created succesfully at: ") + chalk.green(scriptFilePath));
 				else log(chalk.yellow("No patch has been created because no differences have been found!"));
 			}
 			break;
-		case "-ms":
-		case "--migrate-to-source":
-		case "-mt":
-		case "--migrate-to-target":
+		case actions.MIGRATE_TO_SOURCE:
+		case actions.MIGRATE_TO_TARGET:
 			{
-				if (args.length != 2) {
-					log(chalk.red("Missing arguments!"));
+				let configName = null;
+				let toSourceClient = false;
+
+				if (
+					action == actions.MIGRATE_TO_SOURCE &&
+					(!optionParams.has(actions.MIGRATE_TO_SOURCE) || optionParams.get(actions.MIGRATE_TO_SOURCE).length != 1)
+				) {
+					HandleError(new Error("Missing or invalid arguments for option 'MIGRATE TO SOURCE'!"));
 					CLI.PrintHelp();
 					process.exit();
+				} else {
+					configName = optionParams.get(actions.MIGRATE_TO_SOURCE)[0];
+					toSourceClient = true;
 				}
 
-				let toSourceClient = false;
-				if (args[0] == "-ms" || args[0] == "--migrate-to-source") toSourceClient = true;
+				if (
+					action == actions.MIGRATE_TO_TARGET &&
+					(!optionParams.has(actions.MIGRATE_TO_TARGET) || optionParams.get(actions.MIGRATE_TO_TARGET).length != 1)
+				) {
+					HandleError(new Error("Missing or invalid arguments for option 'MIGRATE TO TARGET'!"));
+					CLI.PrintHelp();
+					process.exit();
+				} else configName = optionParams.get(actions.MIGRATE_TO_TARGET)[0];
 
-				let config = ConfigHandler.LoadConfig(args[1]);
-				ConfigHandler.ValidateMigrationConfig(config);
+				let config = ConfigHandler.LoadConfig(configName, ConfigHandler.GetConfigFilePath(optionParams));
+				ConfigHandler.ValidateMigrationConfig(optionParams.config);
 				CLI.PrintOptions(config);
 
 				let progressBar = new Progress(20);
@@ -119,26 +223,27 @@ async function Run() {
 				}
 			}
 			break;
-		case "-s":
-		case "--save":
+		case actions.SAVE:
 			{
-				if (args.length != 3) {
-					log(chalk.red("Missing arguments!"));
+				if (!optionParams.has(actions.SAVE) || optionParams.get(actions.SAVE).length != 2) {
+					HandleError(new Error("Missing or invalid arguments for option 'SAVE'!"));
 					CLI.PrintHelp();
 					process.exit();
 				}
 
-				let config = ConfigHandler.LoadConfig(args[1]);
+				const params = optionParams.get(actions.SAVE);
+				let config = ConfigHandler.LoadConfig(params[0], ConfigHandler.GetConfigFilePath(optionParams));
 				CLI.PrintOptions(config);
 
 				let pgDiff = new PgDiffApi(config);
-				await pgDiff.save(args[2]);
+				await pgDiff.save(params[1]);
 				log();
-				log(chalk.green(`Patch ${args[2]} has been saved!`));
+				log(chalk.green(`Patch ${params[1]} has been saved!`));
 			}
 			break;
+
 		default: {
-			log(chalk.red("Missing arguments!"));
+			HandleError(new Error(`Not implemented yet execution option "${action}"!`));
 			CLI.PrintHelp();
 			process.exit();
 		}

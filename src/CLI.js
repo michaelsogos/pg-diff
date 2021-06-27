@@ -35,6 +35,14 @@ class CLI {
 		log(chalk.green("-ms, --migrate-to-source   \t\t") + chalk.blue("To run migration applying all missing patch files to SOURCE CLIENT."));
 		log(chalk.green("-mt, --migrate-to-target   \t\t") + chalk.blue("To run migration applying all missing patch files to TARGET CLIENT."));
 		log(
+			chalk.green("-f,  --config-file         \t\t") +
+				chalk.blue("To specify where to find config file, otherwise looks for 'pg-diff-config.json' on current working directory.")
+		);
+		log(
+			chalk.green("-p,  --patch-folder        \t\t") +
+				chalk.blue("To set patch folder where save\\retrieve patches (it will override configuration).")
+		);
+		log(
 			chalk.green("-s,  --save                \t\t") +
 				chalk.blue("To save\\register patch on migration history table without executing the script.")
 		);
@@ -63,7 +71,11 @@ class CLI {
 		log(chalk.gray("CONFIGURED OPTIONS"));
 		log(chalk.yellow("         Script Author: ") + chalk.green(config.compareOptions.author));
 		log(chalk.yellow("      Output Directory: ") + chalk.green(path.resolve(process.cwd(), config.compareOptions.outputDirectory)));
-		log(chalk.yellow("     Schema Namespaces: ") + chalk.green(config.compareOptions.schemaCompare.namespaces));
+		let schemasMessage =
+			config.compareOptions.schemaCompare.namespaces && config.compareOptions.schemaCompare.namespaces.length
+				? config.compareOptions.schemaCompare.namespaces
+				: "will be retrieve dynamically from database";
+		log(chalk.yellow("     Schema Namespaces: ") + chalk.green(schemasMessage));
 		log(chalk.yellow("          Data Compare: ") + chalk.green(config.compareOptions.dataCompare.enable ? "ENABLED" : "DISABLED"));
 		log();
 	}
