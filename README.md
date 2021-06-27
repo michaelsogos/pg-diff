@@ -117,7 +117,7 @@ Create a config file in your project folder like the below example:
         },
         "compareOptions": { //This section is mandatory
             "author": "your-name-or-nickname-or-anything-else", //This option is mandatory but the string can be empty
-            "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
+            "outputDirectory": "sqlscripts", //Absolute or relative directory path where save sql patches, in case of invalid values (like null, empty string, not a string) the current working directory will be used
             "getAuthorFromGit": false, //If true will ignore "author" and try to get the it from your GIT CONFIG (firstly from local project config, then from global config)
             "schemaCompare": {
                 "namespaces": ["public", "other-namespace"], //Simple string containing just one schema name or an array of comma-separated schema names for which retrieve objects to be compared, if assign null or any other invalid object it will retrieve automatically all available schemas from database      
@@ -231,4 +231,5 @@ As any other software, this library can be improved, so please for any question 
 
 #### v2.2.0
 * The configuration property __compareOptions -> schemaCompare -> namespaces__ can be just a string _(for single schema compare)_, an array of string or __NOTHING!!!__. When it is null or invalid value then all schemas will be retrieved directly from database. __([#38](https://github.com/michaelsogos/pg-diff/issues/38))__  
+* The configuration property __compareOptions -> outputDirectory__ can be absolute, relative path or __NOTHING!!!__. When it is null or invalid value then the current working directory will be used as fallback value. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__
 
