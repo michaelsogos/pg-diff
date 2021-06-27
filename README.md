@@ -232,4 +232,5 @@ As any other software, this library can be improved, so please for any question 
 #### v2.2.0
 * The configuration property __compareOptions -> schemaCompare -> namespaces__ can be just a string _(for single schema compare)_, an array of string or __NOTHING!!!__. When it is null or invalid value then all schemas will be retrieved directly from database. __([#38](https://github.com/michaelsogos/pg-diff/issues/38))__  
 * The configuration property __compareOptions -> outputDirectory__ can be absolute, relative path or __NOTHING!!!__. When it is null or invalid value then the current working directory will be used as fallback value. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__
+* New CLI options `-p` to set the path folder where save or retrieve patches. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__
 
