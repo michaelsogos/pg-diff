@@ -227,7 +227,7 @@ As any other software, this library can be improved, so please for any question 
 
 ### What's new ?
 #### v2.0.0
-* The cli tool has been refactored completely to unify core logic with project __[pg_diff_api](https://github.com/michaelsogos/pg-diff-api)__
+* The cli tool has been refactored completely to unify core logic with project __[pg_diff_api](https://github.com/michaelsogos/pg-diff-api)__  
 #### v2.2.0
-* The configuration property __compareOptions -> schemaCompare -> namespaces__ can be just a string _(for single schema compare)_, an array of string or __NOTHING!!!__. When it is null or invalid value then all schemas will be retrieved directly from database. __([#38](https://github.com/michaelsogos/pg-diff/issues/38))__
+* The configuration property __compareOptions -> schemaCompare -> namespaces__ can be just a string _(for single schema compare)_, an array of string or __NOTHING!!!__. When it is null or invalid value then all schemas will be retrieved directly from database. __([#38](https://github.com/michaelsogos/pg-diff/issues/38))__  
 
