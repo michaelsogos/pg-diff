@@ -68,7 +68,7 @@ Create a config file in your project folder like the below example:
             "author": "your-name-or-nickname-or-anything-else", //This option is mandatory but the string can be empty
             "outputDirectory": "sqlscripts", //Folder relative to the position of the configuration file where to save sql scripts 
             "schemaCompare": {
-                "namespaces": ["public", "other-namespace"], //List of comma-separated schema names for which retrieve objects to be compared
+                "namespaces": ["public", "other-namespace"], //NEW: Simple string containing just one schema name or an array of comma-separated schema names for which retrieve objects to be compared, if assign null or any other invalid object it will retrieve automatically all available schemas from database
                 "idempotentScript": true, //When true will create safe pgsql code in order to not throw exceptions in case of re-execution of the script, when false will create standard sql code but in case for any reason the script fail during execution it could be hard to rollback changes and re-execution probably will throw exceptions
                 "dropMissingTable": false, //When true will detect tables that exists only on target database, in case a DROP statement will be generated
                 "dropMissingView": false, //When true will detect view and materialized view that exists only on target database, in case a DROP statement will be generated
