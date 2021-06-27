@@ -222,6 +222,10 @@ To avoid conflict or data-loss we suggest to inform team members about the chang
   
   
 ### Problems or missing feature?  
-As any other software, this library can be improved, so please for any question don't exitate to open an issue on github [here](https://github.com/michaelsogos/pg-diff/issues).  
-  
-  
+As any other software, this library can be improved, so please for any question don't exitate to open an issue on github [here](https://github.com/michaelsogos/pg-diff/issues).
+
+
+### What's new ?
+#### v2.2.0
+* The configuration property __compareOptions -> schemaCompare -> namespaces__ can be just a string _(for single namespace comparing)_, an array of string or __NOTHING!!!__. When it is null or invalid value then all schemas will be retrieved directly from database.  ([#38][https://github.com/michaelsogos/pg-diff/issues/38])
+
