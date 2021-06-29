@@ -202,7 +202,7 @@ pg-diff -c development my-first-patch -f /home/me/diff.json
 ```
 
 
-### Specify patch folder
+#### Specify patch folder
 Since version ```2.2.0```  
 Call library with options **-p** passing the _absolute or relative_ folder path to work in environment where patch could be dynamically save\retrieved and is not predictable from beginning.  
 ```bash
