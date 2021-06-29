@@ -192,6 +192,22 @@ It will register the patch in status DONE on migration history table.
 ```bash
 pg-diff -s development 20180923221043142_my-patch.sql
 ```
+
+
+#### Specify file config path
+Since version ```2.2.0```  
+Call library with options **-f** passing the config file path to work in environment where the config file cannot stay closed to your solutions nor patch folder.  
+```bash
+pg-diff -c development my-first-patch -f /home/me/diff.json
+```
+
+
+### Specify patch folder
+Since version ```2.2.0```  
+Call library with options **-p** passing the _absolute or relative_ folder path to work in environment where patch could be dynamically save\retrieved and is not predictable from beginning.  
+```bash
+pg-diff -c development my-first-patch -p /home/me/db_patches
+```
   
   
 ### Team workflow
