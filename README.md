@@ -242,12 +242,21 @@ As any other software, this library can be improved, so please for any question 
 
 
 ### What's new ?
-#### v2.0.0
-* The cli tool has been refactored completely to unify core logic with project __[pg_diff_api](https://github.com/michaelsogos/pg-diff-api)__  
+#### v2.3.1
+* Added support for COMMENT ON statement for all objects __([#40](https://github.com/michaelsogos/pg-diff/issues/40))__ 
+* Fixed issue with TABLE COLUMN SERIAL with implicit use of auto-generated sequence, SERIAL keyword is deprecated from this tool in favour of DEFUALT NEXTVAL(...)
+* Fixed issue with SEQUENCES created at the end of the script, now SEQUENCE statements are before TABLE statements
+* Fixed issue with SEQUENCES not collected if not dependant from TABLE COLUMN, now all SEQUENCES are collected
+* Fixed issue with FUNCTION when have same name but different arguments
+* Fixed issue with AGGREGATE when have same name but different arguments
+* Fixed drop missing tables for MIGRATION\HISTORY table
 
 #### v2.2.0
 * The configuration property __compareOptions -> schemaCompare -> namespaces__ can be just a string _(for single schema compare)_, an array of string or __NOTHING!!!__. When it is null or invalid value then all schemas will be retrieved directly from database. __([#38](https://github.com/michaelsogos/pg-diff/issues/38))__  
 * The configuration property __compareOptions -> outputDirectory__ can be absolute, relative path or __NOTHING!!!__. When it is null or invalid value then the current working directory will be used as fallback value. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__
 * New CLI options `-p` to set the path folder where save or retrieve patches. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__
-* New CLI options `-f` to set the full path for configuration file. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__
+* New CLI options `-f` to set the full path for configuration file. __([#37](https://github.com/michaelsogos/pg-diff/issues/37))__  
+
+#### v2.0.0
+* The cli tool has been refactored completely to unify core logic with project __[pg_diff_api](https://github.com/michaelsogos/pg-diff-api)__  
 
