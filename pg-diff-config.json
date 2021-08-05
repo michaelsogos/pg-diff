@@ -3,7 +3,7 @@
 		"sourceClient": {
 			"host": "localhost",
 			"port": 5432,
-			"database": "pgdiff_test_2",
+			"database": "pg_diff_test1",
 			"user": "postgres",
 			"password": "postgres",
 			"applicationName": "pg-diff-cli"
@@ -11,7 +11,7 @@
 		"targetClient": {
 			"host": "localhost",
 			"port": 5432,
-			"database": "pgdiff_test",
+			"database": "pg_diff_test2",
 			"user": "postgres",
 			"password": "postgres",
 			"applicationName": "pg-diff-cli"

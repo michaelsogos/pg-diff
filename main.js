@@ -37,7 +37,11 @@ function HandleError(e) {
 
 	switch (e.code) {
 		case "MODULE_NOT_FOUND":
-			log(chalk.red('Please create the configuration file "pg-diff-config.json" in the same folder where you run pg-diff or specify config file full path with option parameter "-f"!'));
+			log(
+				chalk.red(
+					'Please create the configuration file "pg-diff-config.json" in the same folder where you run pg-diff or specify config file full path with option parameter "-f"!'
+				)
+			);
 			break;
 	}
 }
@@ -179,29 +183,27 @@ async function Run() {
 				let configName = null;
 				let toSourceClient = false;
 
-				if (
-					action == actions.MIGRATE_TO_SOURCE &&
-					(!optionParams.has(actions.MIGRATE_TO_SOURCE) || optionParams.get(actions.MIGRATE_TO_SOURCE).length != 1)
-				) {
-					HandleError(new Error("Missing or invalid arguments for option 'MIGRATE TO SOURCE'!"));
-					CLI.PrintHelp();
-					process.exit();
-				} else {
-					configName = optionParams.get(actions.MIGRATE_TO_SOURCE)[0];
-					toSourceClient = true;
+				if (action == actions.MIGRATE_TO_SOURCE) {
+					if (!optionParams.has(actions.MIGRATE_TO_SOURCE) || optionParams.get(actions.MIGRATE_TO_SOURCE).length != 1) {
+						HandleError(new Error("Missing or invalid arguments for option 'MIGRATE TO SOURCE'!"));
+						CLI.PrintHelp();
+						process.exit();
+					} else {
+						configName = optionParams.get(actions.MIGRATE_TO_SOURCE)[0];
+						toSourceClient = true;
+					}
 				}
 
-				if (
-					action == actions.MIGRATE_TO_TARGET &&
-					(!optionParams.has(actions.MIGRATE_TO_TARGET) || optionParams.get(actions.MIGRATE_TO_TARGET).length != 1)
-				) {
-					HandleError(new Error("Missing or invalid arguments for option 'MIGRATE TO TARGET'!"));
-					CLI.PrintHelp();
-					process.exit();
-				} else configName = optionParams.get(actions.MIGRATE_TO_TARGET)[0];
+				if (action == actions.MIGRATE_TO_TARGET) {
+					if (!optionParams.has(actions.MIGRATE_TO_TARGET) || optionParams.get(actions.MIGRATE_TO_TARGET).length != 1) {
+						HandleError(new Error("Missing or invalid arguments for option 'MIGRATE TO TARGET'!"));
+						CLI.PrintHelp();
+						process.exit();
+					} else configName = optionParams.get(actions.MIGRATE_TO_TARGET)[0];
+				}
 
 				let config = ConfigHandler.LoadConfig(configName, ConfigHandler.GetConfigFilePath(optionParams));
-				ConfigHandler.ValidateMigrationConfig(optionParams.config);
+				ConfigHandler.ValidateMigrationConfig(optionParams, config);
 				CLI.PrintOptions(config);
 
 				let progressBar = new Progress(20);
