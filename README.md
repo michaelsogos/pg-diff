@@ -260,3 +260,5 @@ As any other software, this library can be improved, so please for any question 
 #### v2.0.0
 * The cli tool has been refactored completely to unify core logic with project __[pg_diff_api](https://github.com/michaelsogos/pg-diff-api)__  
 
+## If you like pg-diff CLI or API ...
+[![Support this project via PayPal](https://cdn.rawgit.com/twolfson/paypal-github-button/1.0.0/dist/button.svg)](https://www.paypal.me/michaelsogos)
