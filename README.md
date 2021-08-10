@@ -242,6 +242,10 @@ As any other software, this library can be improved, so please for any question 
 
 
 ### What's new ?
+#### v2.4.0
+* Added support for GENERATED COLUMN
+* Fixed issue on DATA COMPARE when key fields name contains uppercase letters __([#41](https://github.com/michaelsogos/pg-diff/issues/41))__
+
 #### v2.3.1
 * Added support for COMMENT ON statement for all objects __([#40](https://github.com/michaelsogos/pg-diff/issues/40))__ 
 * Fixed issue with TABLE COLUMN SERIAL with implicit use of auto-generated sequence, SERIAL keyword is deprecated from this tool in favour of DEFUALT NEXTVAL(...)
