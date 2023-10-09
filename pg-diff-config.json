@@ -54,6 +54,7 @@
 			"database": "hukocash_dev",
 			"user": "postgres",
 			"password": "postgres",
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"targetClient": {
@@ -62,6 +63,7 @@
 			"database": "hukocash",
 			"user": "postgres",
 			"password": "postgres",
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"compareOptions": {
