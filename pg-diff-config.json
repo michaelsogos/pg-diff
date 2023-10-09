@@ -6,7 +6,7 @@
 			"database": "pg_diff_test1",
 			"user": "postgres",
 			"password": "postgres",
-            "ssl": false,
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"targetClient": {
@@ -15,7 +15,7 @@
 			"database": "pg_diff_test2",
 			"user": "postgres",
 			"password": "postgres",
-            "ssl": false,
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"compareOptions": {
