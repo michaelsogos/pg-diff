@@ -6,6 +6,7 @@
 			"database": "pg_diff_test1",
 			"user": "postgres",
 			"password": "postgres",
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"targetClient": {
@@ -14,6 +15,7 @@
 			"database": "pg_diff_test2",
 			"user": "postgres",
 			"password": "postgres",
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"compareOptions": {
@@ -52,6 +54,7 @@
 			"database": "hukocash_dev",
 			"user": "postgres",
 			"password": "postgres",
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"targetClient": {
@@ -60,6 +63,7 @@
 			"database": "hukocash",
 			"user": "postgres",
 			"password": "postgres",
+			"ssl": false,
 			"applicationName": "pg-diff-cli"
 		},
 		"compareOptions": {
