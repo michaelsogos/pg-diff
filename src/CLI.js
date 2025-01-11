@@ -1,4 +1,4 @@
-const chalk = require("chalk");
+const chalk = require("chalk").default;
 const figlet = require("figlet");
 const path = require("path");
 const log = console.log;
