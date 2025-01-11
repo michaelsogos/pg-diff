@@ -37,11 +37,14 @@
 		"cli"
 	],
 	"author": "Michael Sogos <michael.sogos@gurustudioweb.it> (https://github.com/michaelsogos)",
+	"contributors": [
+		"angulion"
+	],
 	"license": "MIT",
 	"dependencies": {
-		"chalk": "4.1.0",
+		"chalk": "^5.4.1",
 		"clui": "0.3.6",
-		"figlet": "1.5.0",
-		"pg-diff-api": "1.4.7"
+		"figlet": "^1.8.0",
+		"pg-diff-api": "^1.5.0"
 	}
 }
