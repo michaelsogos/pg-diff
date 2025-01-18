@@ -4,6 +4,7 @@ const actions = {
 	MIGRATE_TO_TARGET: "MIGRATE_TO_TARGET",
 	SAVE: "SAVE",
 	HELP: "HELP",
+	GENERATE_CONFIG: "GENERATE_CONFIG",
 };
 
 module.exports = actions;

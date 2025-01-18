@@ -1,4 +1,3 @@
-- removed idempotent options, it will be always true
 - TODO: compare the pg-diff-config between api and cli project to check diff
 - Move ConfigHandler validation in pg-diff-api
 - check if it is possible to list extension and try to install it
