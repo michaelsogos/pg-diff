@@ -29,10 +29,11 @@ Run()
  *
  * @param {Error} e
  */
-function HandleError(e) {
+function HandleError(e, nostack = false) {
 	log();
-	log(chalk.red(e.stack));
-	process.stderr.write(e.message);
+	if (!nostack) log(chalk.red(e.stack));
+	if (!nostack) process.stderr.write(e.message);
+	else log(chalk.red(e.message));
 	process.stderr.write("\n");
 
 	switch (e.code) {
@@ -65,7 +66,7 @@ function CheckDoubleActionError(lastAction, currentAction) {
 async function Run() {
 	var args = process.argv.slice(2);
 	if (args.length <= 0) {
-		HandleError(new Error("Missing arguments!"));
+		HandleError(new Error("Options not specified!"), true);
 	}
 
 	let action = null;
@@ -127,6 +128,13 @@ async function Run() {
 					lastOption = options.CONFIG_FILEPATH;
 					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
 					break;
+				case "-g":
+				case "--generate-config":
+					CheckDoubleActionError(action, arg);
+					action = actions.GENERATE_CONFIG;
+					lastOption = actions.GENERATE_CONFIG;
+					if (!optionParams.has(lastOption)) optionParams.set(lastOption, []);
+					break;
 				default:
 					HandleError(new Error(`Invalid parameter "${arg}"!`));
 					CLI.PrintHelp();
@@ -140,7 +148,7 @@ async function Run() {
 	}
 
 	if (!action) {
-		HandleError(new Error(`Missing execution options! Please specify one between -c, -ms, -mt, -s execution option.`));
+		HandleError(new Error(`Missing execution options! Please specify one between -c, -ms, -mt, -s, -g execution option.`), true);
 		CLI.PrintHelp();
 		process.exit();
 	}
@@ -243,7 +251,19 @@ async function Run() {
 				log(chalk.green(`Patch ${params[1]} has been saved!`));
 			}
 			break;
+		case actions.GENERATE_CONFIG:
+			{
+				if (!optionParams.has(actions.GENERATE_CONFIG) || optionParams.get(actions.GENERATE_CONFIG).length > 1) {
+					HandleError(new Error("Invalid arguments for option 'GENERATE CONFIG'!"));
+					CLI.PrintHelp();
+					process.exit();
+				}
 
+				const params = optionParams.get(actions.GENERATE_CONFIG);
+
+				await CLI.GenerateConfig(params[0]);
+			}
+			break;
 		default: {
 			HandleError(new Error(`Not implemented yet execution option "${action}"!`));
 			CLI.PrintHelp();
